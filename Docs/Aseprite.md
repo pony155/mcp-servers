@@ -318,6 +318,23 @@ Every edit input should include:
 
 Every edit should be performed in an Aseprite transaction when supported, saved to a temporary destination, and published only after success. Return the resulting file hash and normalized summary.
 
+### Implemented animation workflow tools
+
+- `aseprite_import_sprite_sheet` imports a bounded PNG grid into a new editable animation. It
+  supports explicit cell dimensions, optional column and frame counts, margin, spacing, uniform
+  frame duration, layer naming, optional tag creation, and exact color-key transparency.
+- `aseprite_resize_canvas` expands or crops the canvas around one of nine anchors without scaling
+  cel pixels.
+- `aseprite_resize_sprite` scales the canvas and cel artwork. The initial public method is limited
+  to nearest-neighbor scaling so pixel-art behavior remains deterministic.
+- `aseprite_validate_animation` performs a bounded, read-only scan for empty frames, visible bounds,
+  baseline drift, width/height drift, and possible duplicate frames. Tilemaps use a documented
+  bounds approximation.
+
+All three mutation tools use authorized paths, temporary sibling output, explicit overwrite
+permission, and normalized mutation results. Resize mutations also support optimistic source-hash
+guards.
+
 ## 9. Resources
 
 Resources are optional for the first milestone. Add them only after the tool workflows are stable.

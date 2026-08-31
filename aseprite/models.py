@@ -134,6 +134,37 @@ class MutationResult(FileResult):
     sprite: SpriteInfo
 
 
+class AnimationFrameBounds(StrictModel):
+    frame: int
+    bounds: RectangleInfo | None
+    opaque_pixels: int
+    baseline: int | None
+
+
+class AnimationValidationIssue(StrictModel):
+    code: str
+    severity: Literal["warning", "error"]
+    message: str
+    frames: list[int] = Field(default_factory=list)
+
+
+class AnimationValidationResult(StrictModel):
+    source_path: str
+    sha256: str
+    valid: bool
+    width: int
+    height: int
+    frame_count: int
+    durations_ms: list[int]
+    frame_bounds: list[AnimationFrameBounds]
+    empty_frames: list[int]
+    duplicate_groups: list[list[int]]
+    baseline_drift: int
+    bounds_width_drift: int
+    bounds_height_drift: int
+    issues: list[AnimationValidationIssue]
+
+
 class PixelInput(StrictModel):
     x: Annotated[int, Field(ge=0)]
     y: Annotated[int, Field(ge=0)]

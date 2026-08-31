@@ -16,6 +16,7 @@ from .config import Settings
 from .errors import AsepriteMCPError
 from .interop import ProcessPathMapper, resolve_execution_mode
 from .models import (
+    AnimationValidationResult,
     FileResult,
     FrameDefinition,
     HealthResult,
@@ -45,6 +46,20 @@ MAX_CANVAS_PIXELS = 16_777_216
 MAX_FRAMES = 256
 MAX_LAYERS = 128
 MAX_PIXEL_EDITS = 10_000
+MAX_VALIDATION_PIXEL_VISITS = 16_777_216
+CANVAS_ANCHORS = frozenset(
+    {
+        "top-left",
+        "top",
+        "top-right",
+        "left",
+        "center",
+        "right",
+        "bottom-left",
+        "bottom",
+        "bottom-right",
+    }
+)
 
 
 class AsepriteAdapter:
@@ -611,6 +626,236 @@ class AsepriteAdapter:
         logger.info("Pixel edit completed output=%s bytes=%d", output, mutation.byte_size)
         return mutation
 
+    async def import_sprite_sheet(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        frame_width: int,
+        frame_height: int,
+        columns: int | None,
+        frame_count: int | None,
+        margin: int,
+        spacing: int,
+        duration_ms: int,
+        layer_name: str,
+        tag_name: str | None,
+        transparent_color: str | None,
+        overwrite: bool,
+    ) -> MutationResult:
+        self._validate_canvas_dimensions(frame_width, frame_height)
+        if columns is not None and not 1 <= columns <= MAX_FRAMES:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"columns must be between 1 and {MAX_FRAMES}"
+            )
+        if frame_count is not None and not 1 <= frame_count <= MAX_FRAMES:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"frame_count must be between 1 and {MAX_FRAMES}"
+            )
+        if not 0 <= margin <= MAX_CANVAS_DIMENSION or not 0 <= spacing <= MAX_CANVAS_DIMENSION:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"margin and spacing may not exceed {MAX_CANVAS_DIMENSION}"
+            )
+        if not 1 <= duration_ms <= 60_000:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "duration_ms must be between 1 and 60000")
+
+        source = self.paths.existing_file(source_path, extensions=frozenset({".png"}))
+        output = self.paths.output_file(
+            output_path, extensions=SPRITE_DOCUMENT_EXTENSIONS, overwrite=overwrite
+        )
+        temporary = temporary_sibling(output)
+        logger.info(
+            "Importing sprite sheet source=%s output=%s frame=%dx%d columns=%s "
+            "frames=%s margin=%d spacing=%d overwrite=%s",
+            source,
+            output,
+            frame_width,
+            frame_height,
+            columns,
+            frame_count,
+            margin,
+            spacing,
+            overwrite,
+        )
+        async with self._locked([source, output]):
+            source_hash = sha256_file(source)
+            try:
+                await self._bridge(
+                    "import_sprite_sheet",
+                    {
+                        "source_path": self._process_path(source),
+                        "output_path": self._process_path(temporary),
+                        "frame_width": frame_width,
+                        "frame_height": frame_height,
+                        "columns": columns,
+                        "frame_count": frame_count,
+                        "margin": margin,
+                        "spacing": spacing,
+                        "duration_ms": duration_ms,
+                        "layer_name": layer_name,
+                        "tag_name": tag_name,
+                        "transparent_color": transparent_color,
+                        "max_frames": MAX_FRAMES,
+                        "max_total_pixels": MAX_CANVAS_PIXELS,
+                    },
+                )
+                if not temporary.is_file():
+                    raise AsepriteMCPError(
+                        "ASEPRITE_FAILED", "Aseprite did not create the imported sprite document"
+                    )
+                publish_file(temporary, output)
+            finally:
+                temporary.unlink(missing_ok=True)
+        sprite = await self.inspect_sprite(str(output))
+        mutation = MutationResult(
+            **self._file_result(output).model_dump(),
+            source_sha256=source_hash,
+            sprite=sprite,
+        )
+        logger.info("Sprite-sheet import completed output=%s frames=%d", output, sprite.frame_count)
+        return mutation
+
+    async def resize_canvas(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        width: int,
+        height: int,
+        anchor: str,
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        self._validate_canvas_dimensions(width, height)
+        if anchor not in CANVAS_ANCHORS:
+            raise AsepriteMCPError("INVALID_INPUT", "unsupported canvas anchor")
+        return await self._bridge_mutation(
+            "resize_canvas",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"width": width, "height": height, "anchor": anchor},
+        )
+
+    async def resize_sprite(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        width: int,
+        height: int,
+        method: Literal["nearest"],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        self._validate_canvas_dimensions(width, height)
+        return await self._bridge_mutation(
+            "resize_sprite",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"width": width, "height": height, "method": method},
+        )
+
+    async def validate_animation(
+        self,
+        source_path: str,
+        *,
+        baseline_tolerance: int,
+        bounds_tolerance: int,
+        check_duplicates: bool,
+    ) -> AnimationValidationResult:
+        if not 0 <= baseline_tolerance <= MAX_CANVAS_DIMENSION:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "baseline_tolerance is outside the limit")
+        if not 0 <= bounds_tolerance <= MAX_CANVAS_DIMENSION:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "bounds_tolerance is outside the limit")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        logger.info(
+            "Validating animation source=%s baseline_tolerance=%d bounds_tolerance=%d "
+            "check_duplicates=%s",
+            source,
+            baseline_tolerance,
+            bounds_tolerance,
+            check_duplicates,
+        )
+        async with self._locked([source]):
+            result = await self._bridge(
+                "validate_animation",
+                {
+                    "source_path": self._process_path(source),
+                    "baseline_tolerance": baseline_tolerance,
+                    "bounds_tolerance": bounds_tolerance,
+                    "check_duplicates": check_duplicates,
+                    "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+                },
+            )
+            result["source_path"] = str(source)
+            result["sha256"] = sha256_file(source)
+        validation = AnimationValidationResult.model_validate(result)
+        logger.info(
+            "Animation validation completed source=%s valid=%s issues=%d",
+            source,
+            validation.valid,
+            len(validation.issues),
+        )
+        return validation
+
+    async def _bridge_mutation(
+        self,
+        operation: str,
+        source_path: str,
+        output_path: str,
+        *,
+        overwrite: bool,
+        expected_source_hash: str | None,
+        payload: dict[str, Any],
+    ) -> MutationResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS)
+        output = self.paths.output_file(
+            output_path, extensions=SPRITE_DOCUMENT_EXTENSIONS, overwrite=overwrite
+        )
+        if source == output and not overwrite:
+            raise AsepriteMCPError(
+                "OUTPUT_EXISTS", "Editing the source in place requires overwrite=true"
+            )
+        temporary = temporary_sibling(output)
+        logger.info(
+            "Starting sprite mutation operation=%s source=%s output=%s overwrite=%s hash_guard=%s",
+            operation,
+            source,
+            output,
+            overwrite,
+            expected_source_hash is not None,
+        )
+        async with self._locked([source, output]):
+            source_hash = self._validate_source_hash(source, expected_source_hash)
+            try:
+                await self._bridge(
+                    operation,
+                    {
+                        "source_path": self._process_path(source),
+                        "output_path": self._process_path(temporary),
+                        **payload,
+                    },
+                )
+                if not temporary.is_file():
+                    raise AsepriteMCPError(
+                        "ASEPRITE_FAILED", "Aseprite did not create the edited sprite document"
+                    )
+                publish_file(temporary, output)
+            finally:
+                temporary.unlink(missing_ok=True)
+        sprite = await self.inspect_sprite(str(output))
+        mutation = MutationResult(
+            **self._file_result(output).model_dump(),
+            source_sha256=source_hash,
+            sprite=sprite,
+        )
+        logger.info("Sprite mutation completed operation=%s output=%s", operation, output)
+        return mutation
+
     @staticmethod
     def _file_result(path: Path) -> FileResult:
         return FileResult(
@@ -645,3 +890,14 @@ class AsepriteAdapter:
             raise AsepriteMCPError(
                 "LIMIT_EXCEEDED", f"At most {MAX_PIXEL_EDITS} initial pixels are allowed"
             )
+
+    @staticmethod
+    def _validate_canvas_dimensions(width: int, height: int) -> None:
+        if width < 1 or height < 1:
+            raise AsepriteMCPError("INVALID_INPUT", "width and height must be positive")
+        if width > MAX_CANVAS_DIMENSION or height > MAX_CANVAS_DIMENSION:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"Canvas dimensions may not exceed {MAX_CANVAS_DIMENSION}"
+            )
+        if width * height > MAX_CANVAS_PIXELS:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "Canvas pixel count exceeds the limit")

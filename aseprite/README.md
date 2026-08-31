@@ -143,8 +143,37 @@ bridge request payloads are not logged.
 | `aseprite_export_sprite_sheet` | Export a PNG sheet and JSON-array metadata. | Yes |
 | `aseprite_create_sprite` | Create a bounded `.ase` or `.aseprite` document. | Yes |
 | `aseprite_set_pixels` | Set up to 10,000 RGBA pixels on one layer/frame. | Yes |
+| `aseprite_import_sprite_sheet` | Import a PNG grid as an editable animation with one cel per frame. | Yes |
+| `aseprite_resize_canvas` | Change canvas dimensions and anchor artwork without scaling it. | Yes |
+| `aseprite_resize_sprite` | Scale a document and its cels with nearest-neighbor sampling. | Yes |
+| `aseprite_validate_animation` | Report empty or duplicate frames, visible bounds, baseline drift, and size drift. | No |
 
 Frame indices are zero-based. Layer selectors are exact hierarchy paths such as `Character/Outline`.
+
+### Sprite-sheet import
+
+`aseprite_import_sprite_sheet` accepts a PNG containing a regular grid. `frame_width` and
+`frame_height` are required. The server infers the number of columns from the image width unless
+`columns` is supplied, and imports all complete grid cells unless `frame_count` limits the result.
+`margin` describes transparent or decorative space around the grid, while `spacing` describes the
+gap between cells. PNG alpha is preserved; `transparent_color` can additionally remove an exact
+`#RRGGBB` or `#RRGGBBAA` color. Every imported frame receives the same `duration_ms` value.
+
+### Resize behavior
+
+`aseprite_resize_canvas` changes the canvas without resampling artwork. Its nine-position `anchor`
+controls where existing cels remain when space is added or removed. `aseprite_resize_sprite`
+changes both canvas and artwork dimensions; version 0.1 supports the deterministic `nearest`
+method only. Both tools accept `expected_source_hash` and require `overwrite=true` for in-place
+replacement.
+
+### Animation validation
+
+`aseprite_validate_animation` scans visible image-layer pixels and returns per-frame bounds, opaque
+pixel counts, baselines, durations, empty frames, possible duplicate groups, and drift measurements.
+`baseline_tolerance` and `bounds_tolerance` control when drift becomes an issue. Tilemap cel bounds
+are approximated and identified by a warning. Validation stops when its bounded pixel-visit budget
+would be exceeded.
 
 ## Safety behavior
 
@@ -156,7 +185,8 @@ Frame indices are zero-based. Layer selectors are exact hierarchy paths such as 
 - WSL-to-Windows path conversion occurs only after local path authorization.
 - Tool calls cannot supply raw Aseprite flags, executable paths, scripts, or Lua source.
 - Completed files are written to temporary sibling paths before publication.
-- Requests are bounded by time, process concurrency, diagnostic output, dimensions, frames, layers, and pixel count.
+- Requests are bounded by time, process concurrency, diagnostic output, dimensions, frames, layers,
+  pixel edits, and validation pixel visits.
 
 ## Development
 

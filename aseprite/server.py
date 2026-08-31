@@ -12,6 +12,7 @@ from . import __version__
 from .adapter import AsepriteAdapter
 from .config import Settings
 from .models import (
+    AnimationValidationResult,
     FrameDefinition,
     HealthResult,
     LayerDefinition,
@@ -181,5 +182,157 @@ def build_server(settings: Settings) -> MCPServer:
             expected_source_hash=expected_source_hash,
         )
 
-    logger.info("Registered 6 Aseprite MCP tools")
+    @server.tool()
+    async def aseprite_import_sprite_sheet(
+        source_path: Annotated[str, Field(description="Authorized source PNG sprite sheet")],
+        output_path: Annotated[
+            str, Field(description="Authorized destination .ase or .aseprite path")
+        ],
+        frame_width: Annotated[int, Field(ge=1, le=4096)],
+        frame_height: Annotated[int, Field(ge=1, le=4096)],
+        columns: Annotated[
+            int | None,
+            Field(ge=1, le=256, description="Grid columns; inferred from image width by default"),
+        ] = None,
+        frame_count: Annotated[
+            int | None,
+            Field(ge=1, le=256, description="Frames to import; all complete cells by default"),
+        ] = None,
+        margin: Annotated[int, Field(ge=0, le=4096)] = 0,
+        spacing: Annotated[int, Field(ge=0, le=4096)] = 0,
+        duration_ms: Annotated[int, Field(ge=1, le=60_000)] = 100,
+        layer_name: Annotated[str, Field(min_length=1, max_length=128)] = "Layer 1",
+        tag_name: Annotated[str | None, Field(min_length=1, max_length=128)] = None,
+        transparent_color: Annotated[
+            str | None,
+            Field(
+                pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                description="Optional #RRGGBB or #RRGGBBAA color key",
+            ),
+        ] = None,
+        overwrite: Annotated[
+            bool, Field(description="Explicitly allow replacing output_path")
+        ] = False,
+    ) -> MutationResult:
+        """Import a PNG grid as an editable Aseprite animation with one cel per frame."""
+
+        return await adapter.import_sprite_sheet(
+            source_path,
+            output_path,
+            frame_width=frame_width,
+            frame_height=frame_height,
+            columns=columns,
+            frame_count=frame_count,
+            margin=margin,
+            spacing=spacing,
+            duration_ms=duration_ms,
+            layer_name=layer_name,
+            tag_name=tag_name,
+            transparent_color=transparent_color,
+            overwrite=overwrite,
+        )
+
+    @server.tool()
+    async def aseprite_resize_canvas(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[
+            str, Field(description="Authorized destination .ase or .aseprite path")
+        ],
+        width: Annotated[int, Field(ge=1, le=4096)],
+        height: Annotated[int, Field(ge=1, le=4096)],
+        anchor: Literal[
+            "top-left",
+            "top",
+            "top-right",
+            "left",
+            "center",
+            "right",
+            "bottom-left",
+            "bottom",
+            "bottom-right",
+        ] = "center",
+        overwrite: Annotated[
+            bool, Field(description="Explicitly allow replacing output_path")
+        ] = False,
+        expected_source_hash: Annotated[
+            str | None,
+            Field(
+                min_length=64,
+                max_length=64,
+                pattern=r"^[0-9a-fA-F]{64}$",
+                description="Optional SHA-256 guard against concurrent source changes",
+            ),
+        ] = None,
+    ) -> MutationResult:
+        """Resize the transparent canvas without scaling sprite artwork."""
+
+        return await adapter.resize_canvas(
+            source_path,
+            output_path,
+            width=width,
+            height=height,
+            anchor=anchor,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_resize_sprite(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[
+            str, Field(description="Authorized destination .ase or .aseprite path")
+        ],
+        width: Annotated[int, Field(ge=1, le=4096)],
+        height: Annotated[int, Field(ge=1, le=4096)],
+        method: Literal["nearest"] = "nearest",
+        overwrite: Annotated[
+            bool, Field(description="Explicitly allow replacing output_path")
+        ] = False,
+        expected_source_hash: Annotated[
+            str | None,
+            Field(
+                min_length=64,
+                max_length=64,
+                pattern=r"^[0-9a-fA-F]{64}$",
+                description="Optional SHA-256 guard against concurrent source changes",
+            ),
+        ] = None,
+    ) -> MutationResult:
+        """Scale an Aseprite document and its cels using nearest-neighbor pixel scaling."""
+
+        return await adapter.resize_sprite(
+            source_path,
+            output_path,
+            width=width,
+            height=height,
+            method=method,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_validate_animation(
+        source_path: Annotated[str, Field(description="Authorized sprite or image path")],
+        baseline_tolerance: Annotated[
+            int,
+            Field(ge=0, le=4096, description="Allowed difference between frame baselines"),
+        ] = 0,
+        bounds_tolerance: Annotated[
+            int,
+            Field(ge=0, le=4096, description="Allowed width and height drift across frames"),
+        ] = 0,
+        check_duplicates: Annotated[
+            bool, Field(description="Detect frames with matching visible-pixel signatures")
+        ] = True,
+    ) -> AnimationValidationResult:
+        """Validate frame occupancy, bounds, baseline consistency, sizing, and duplicates."""
+
+        return await adapter.validate_animation(
+            source_path,
+            baseline_tolerance=baseline_tolerance,
+            bounds_tolerance=bounds_tolerance,
+            check_duplicates=check_duplicates,
+        )
+
+    logger.info("Registered 10 Aseprite MCP tools")
     return server
