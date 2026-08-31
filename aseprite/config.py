@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import shutil
 import sys
@@ -12,12 +13,15 @@ from pathlib import Path
 from .errors import AsepriteMCPError
 from .interop import ExecutionMode, is_wsl
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_CONCURRENCY = 2
 DEFAULT_MAX_CAPTURE_BYTES = 1_048_576
 MAX_TIMEOUT_SECONDS = 300.0
 MAX_CONCURRENCY = 8
 MAX_CAPTURE_BYTES = 16_777_216
+LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +35,7 @@ class Settings:
     max_capture_bytes: int = DEFAULT_MAX_CAPTURE_BYTES
     execution_mode: ExecutionMode = "auto"
     bridge_temp_root: Path | None = None
+    log_level: str = "INFO"
 
 
 def _common_aseprite_paths() -> tuple[Path, ...]:
@@ -68,18 +73,29 @@ def discover_aseprite(explicit: str | os.PathLike[str] | None = None) -> Path | 
 
     configured = explicit or os.environ.get("ASEPRITE_EXECUTABLE")
     if configured:
+        source = "command line" if explicit else "ASEPRITE_EXECUTABLE"
+        logger.debug("Checking Aseprite executable configured by %s", source)
         candidate = Path(configured).expanduser()
         if candidate.is_file():
-            return candidate.resolve(strict=True)
+            resolved = candidate.resolve(strict=True)
+            logger.info("Found configured Aseprite executable: %s", resolved)
+            return resolved
+        logger.warning("Configured Aseprite executable was not found: %s", candidate)
         return None
 
     located = shutil.which("aseprite") or shutil.which("aseprite.exe")
     if located:
-        return Path(located).resolve(strict=True)
+        resolved = Path(located).resolve(strict=True)
+        logger.info("Found Aseprite executable on PATH: %s", resolved)
+        return resolved
 
     for candidate in _common_aseprite_paths():
+        logger.debug("Checking common Aseprite location: %s", candidate)
         if candidate.is_file():
-            return candidate.resolve(strict=True)
+            resolved = candidate.resolve(strict=True)
+            logger.info("Found Aseprite executable in a common location: %s", resolved)
+            return resolved
+    logger.warning("Aseprite executable discovery did not find an installation")
     return None
 
 
@@ -141,6 +157,12 @@ def parse_settings(argv: list[str] | None = None) -> Settings:
         metavar="PATH",
         help="Existing directory for temporary Lua bridge files",
     )
+    parser.add_argument(
+        "--log-level",
+        choices=LOG_LEVELS,
+        default=os.environ.get("ASEPRITE_MCP_LOG_LEVEL", "INFO").upper(),
+        help="Diagnostic verbosity written to stderr",
+    )
     args = parser.parse_args(argv)
     if args.timeout_seconds > MAX_TIMEOUT_SECONDS:
         parser.error(f"--timeout-seconds may not exceed {MAX_TIMEOUT_SECONDS:g}")
@@ -179,4 +201,5 @@ def parse_settings(argv: list[str] | None = None) -> Settings:
         max_capture_bytes=args.max_capture_bytes,
         execution_mode=args.execution_mode,
         bridge_temp_root=bridge_temp_root,
+        log_level=args.log_level,
     )

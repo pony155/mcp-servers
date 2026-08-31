@@ -62,6 +62,17 @@ class AsepriteAdapter:
         self.bridge_temp_root = self._select_bridge_temp_root()
         self._semaphore = asyncio.Semaphore(settings.max_concurrency)
         self._path_locks: dict[Path, asyncio.Lock] = {}
+        logger.info(
+            "Aseprite adapter initialized execution_mode=%s executable=%s allowed_roots=%d",
+            self.execution_mode,
+            settings.aseprite_executable or "not found",
+            len(settings.allowed_roots),
+        )
+        logger.debug(
+            "Aseprite adapter paths bridge=%s bridge_temp_root=%s",
+            self.bridge_path,
+            self.bridge_temp_root or "system default",
+        )
 
     def _select_bridge_temp_root(self) -> Path | None:
         if self.settings.bridge_temp_root is not None:
@@ -84,10 +95,13 @@ class AsepriteAdapter:
             )
         return executable
 
-    async def _run(self, arguments: list[str]) -> ProcessResult:
+    async def _run(self, arguments: list[str], *, operation: str) -> ProcessResult:
+        logger.debug("Waiting for Aseprite process slot operation=%s", operation)
         async with self._semaphore:
-            logger.debug("Starting Aseprite operation")
-            return await self.runner.run(self._executable(), arguments)
+            logger.debug("Acquired Aseprite process slot operation=%s", operation)
+            return await self.runner.run(
+                self._executable(), arguments, operation=operation
+            )
 
     @asynccontextmanager
     async def _locked(self, paths: Iterable[Path]) -> AsyncIterator[None]:
@@ -104,6 +118,7 @@ class AsepriteAdapter:
         if not self.bridge_path.is_file():
             raise AsepriteMCPError("BRIDGE_PROTOCOL_ERROR", "Packaged Lua bridge is missing")
 
+        logger.info("Starting Lua bridge operation=%s", operation)
         with tempfile.TemporaryDirectory(
             prefix="aseprite-mcp-", dir=self.bridge_temp_root
         ) as temporary_directory:
@@ -114,7 +129,13 @@ class AsepriteAdapter:
             if self.execution_mode == "wsl-windows":
                 runtime_bridge_path = temp_root / "bridge.lua"
                 shutil.copyfile(self.bridge_path, runtime_bridge_path)
-            request_path.write_text(
+            logger.debug(
+                "Prepared bridge workspace operation=%s directory=%s runtime_script=%s",
+                operation,
+                temp_root,
+                runtime_bridge_path,
+            )
+            request_characters = request_path.write_text(
                 json.dumps(
                     {
                         "protocol_version": BRIDGE_PROTOCOL_VERSION,
@@ -124,6 +145,11 @@ class AsepriteAdapter:
                     ensure_ascii=False,
                 ),
                 encoding="utf-8",
+            )
+            logger.debug(
+                "Wrote bridge request operation=%s characters=%d",
+                operation,
+                request_characters,
             )
             result = await self._run(
                 [
@@ -135,7 +161,8 @@ class AsepriteAdapter:
                     f"response={self._process_path(response_path)}",
                     "--script",
                     self._process_path(runtime_bridge_path),
-                ]
+                ],
+                operation=f"bridge:{operation}",
             )
             if not response_path.is_file():
                 diagnostic = (result.stderr or result.stdout).strip()
@@ -147,6 +174,11 @@ class AsepriteAdapter:
             if response_path.stat().st_size > self.settings.max_capture_bytes:
                 raise AsepriteMCPError("LIMIT_EXCEEDED", "Bridge response exceeded the size limit")
             try:
+                logger.debug(
+                    "Reading bridge response operation=%s bytes=%d",
+                    operation,
+                    response_path.stat().st_size,
+                )
                 response: Any = json.loads(response_path.read_text(encoding="utf-8-sig"))
             except (OSError, json.JSONDecodeError) as exc:
                 raise AsepriteMCPError(
@@ -168,11 +200,14 @@ class AsepriteAdapter:
                 raise AsepriteMCPError(
                     "BRIDGE_PROTOCOL_ERROR", "Aseprite bridge result must be an object"
                 )
+            logger.info("Completed Lua bridge operation=%s", operation)
             return bridge_result
 
     async def health(self, server_version: str) -> HealthResult:
+        logger.info("Running Aseprite health check server_version=%s", server_version)
         executable = self.settings.aseprite_executable
         if executable is None:
+            logger.warning("Health check failed because no Aseprite executable was found")
             return HealthResult(
                 ok=False,
                 server_version=server_version,
@@ -189,12 +224,15 @@ class AsepriteAdapter:
                 error="ASEPRITE_NOT_FOUND: configure --aseprite or ASEPRITE_EXECUTABLE",
             )
         try:
-            version_result = await self._run(["--version"])
+            version_result = await self._run(["--version"], operation="version")
             bridge_health = await self._bridge("health", {})
             version = version_result.stdout.strip() or str(
                 bridge_health.get("aseprite_version", "")
             )
             api_version = int(bridge_health["api_version"])
+            logger.info(
+                "Aseprite health check passed version=%s api_version=%d", version, api_version
+            )
             return HealthResult(
                 ok=True,
                 server_version=server_version,
@@ -210,6 +248,9 @@ class AsepriteAdapter:
                 ),
             )
         except AsepriteMCPError as exc:
+            logger.warning(
+                "Aseprite health check failed code=%s message=%s", exc.code, exc.message
+            )
             return HealthResult(
                 ok=False,
                 server_version=server_version,
@@ -230,6 +271,11 @@ class AsepriteAdapter:
         self, source_path: str, *, include_palette_colors: bool = False
     ) -> SpriteInfo:
         source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        logger.info(
+            "Inspecting sprite source=%s include_palette_colors=%s",
+            source,
+            include_palette_colors,
+        )
         async with self._locked([source]):
             result = await self._bridge(
                 "inspect",
@@ -240,7 +286,15 @@ class AsepriteAdapter:
             )
             result["source_path"] = str(source)
             result["sha256"] = sha256_file(source)
-            return SpriteInfo.model_validate(result)
+            sprite = SpriteInfo.model_validate(result)
+            logger.info(
+                "Sprite inspection completed source=%s size=%dx%d frames=%d",
+                source,
+                sprite.width,
+                sprite.height,
+                sprite.frame_count,
+            )
+            return sprite
 
     @staticmethod
     def _validate_source_hash(source: Path, expected_source_hash: str | None) -> str:
@@ -277,6 +331,18 @@ class AsepriteAdapter:
             raise AsepriteMCPError("LIMIT_EXCEEDED", "scale must be between 0.1 and 16")
 
         temporary = temporary_sibling(output)
+        logger.info(
+            "Rendering sprite source=%s output=%s format=%s frame=%s tag=%s "
+            "scale=%s layers=%d overwrite=%s",
+            source,
+            output,
+            output_format,
+            frame,
+            tag,
+            f"{scale:g}",
+            len(layers),
+            overwrite,
+        )
         arguments = ["--batch", "--noinapp"]
         for layer in layers:
             arguments.extend(["--layer", layer])
@@ -294,7 +360,7 @@ class AsepriteAdapter:
 
         async with self._locked([source, output]):
             try:
-                await self._run(arguments)
+                await self._run(arguments, operation="render")
                 if not temporary.is_file():
                     raise AsepriteMCPError(
                         "ASEPRITE_FAILED", "Aseprite did not create the rendered file"
@@ -302,7 +368,7 @@ class AsepriteAdapter:
                 publish_file(temporary, output)
             finally:
                 temporary.unlink(missing_ok=True)
-        return RenderResult(
+        render_result = RenderResult(
             output_path=str(output),
             byte_size=output.stat().st_size,
             sha256=sha256_file(output),
@@ -311,6 +377,10 @@ class AsepriteAdapter:
             tag=tag,
             scale=scale,
         )
+        logger.info(
+            "Render completed output=%s bytes=%d", output, render_result.byte_size
+        )
+        return render_result
 
     async def export_sprite_sheet(
         self,
@@ -343,6 +413,17 @@ class AsepriteAdapter:
 
         image_temporary = temporary_sibling(image_output)
         data_temporary = temporary_sibling(data_output)
+        logger.info(
+            "Exporting sprite sheet source=%s image=%s data=%s layout=%s tag=%s "
+            "layers=%d overwrite=%s",
+            source,
+            image_output,
+            data_output,
+            layout,
+            tag,
+            len(layers),
+            overwrite,
+        )
         arguments = ["--batch", "--noinapp"]
         for layer in layers:
             arguments.extend(["--layer", layer])
@@ -373,7 +454,7 @@ class AsepriteAdapter:
 
         async with self._locked([source, image_output, data_output]):
             try:
-                await self._run(arguments)
+                await self._run(arguments, operation="export_sprite_sheet")
                 if not image_temporary.is_file() or not data_temporary.is_file():
                     raise AsepriteMCPError(
                         "ASEPRITE_FAILED", "Aseprite did not create both sprite-sheet outputs"
@@ -391,12 +472,19 @@ class AsepriteAdapter:
                 image_temporary.unlink(missing_ok=True)
                 data_temporary.unlink(missing_ok=True)
 
-        return SpriteSheetResult(
+        sheet_result = SpriteSheetResult(
             image=self._file_result(image_output),
             data=self._file_result(data_output),
             layout=layout,
             frame_count=frame_count,
         )
+        logger.info(
+            "Sprite-sheet export completed image=%s data=%s frames=%d",
+            image_output,
+            data_output,
+            frame_count,
+        )
+        return sheet_result
 
     async def create_sprite(
         self,
@@ -415,6 +503,18 @@ class AsepriteAdapter:
             output_path, extensions=SPRITE_DOCUMENT_EXTENSIONS, overwrite=overwrite
         )
         temporary = temporary_sibling(output)
+        logger.info(
+            "Creating sprite output=%s size=%dx%d mode=%s layers=%d frames=%d "
+            "pixels=%d overwrite=%s",
+            output,
+            width,
+            height,
+            color_mode,
+            len(layers),
+            len(frames),
+            len(pixels),
+            overwrite,
+        )
         async with self._locked([output]):
             try:
                 await self._bridge(
@@ -437,9 +537,11 @@ class AsepriteAdapter:
             finally:
                 temporary.unlink(missing_ok=True)
         sprite = await self.inspect_sprite(str(output))
-        return MutationResult(
+        mutation = MutationResult(
             **self._file_result(output).model_dump(), source_sha256=None, sprite=sprite
         )
+        logger.info("Sprite creation completed output=%s bytes=%d", output, mutation.byte_size)
+        return mutation
 
     async def set_pixels(
         self,
@@ -469,6 +571,17 @@ class AsepriteAdapter:
                 "OUTPUT_EXISTS", "Editing the source in place requires overwrite=true"
             )
         temporary = temporary_sibling(output)
+        logger.info(
+            "Editing sprite pixels source=%s output=%s layer=%s frame=%d pixels=%d "
+            "overwrite=%s hash_guard=%s",
+            source,
+            output,
+            layer,
+            frame,
+            len(pixels),
+            overwrite,
+            expected_source_hash is not None,
+        )
         async with self._locked([source, output]):
             source_hash = self._validate_source_hash(source, expected_source_hash)
             try:
@@ -490,11 +603,13 @@ class AsepriteAdapter:
             finally:
                 temporary.unlink(missing_ok=True)
         sprite = await self.inspect_sprite(str(output))
-        return MutationResult(
+        mutation = MutationResult(
             **self._file_result(output).model_dump(),
             source_sha256=source_hash,
             sprite=sprite,
         )
+        logger.info("Pixel edit completed output=%s bytes=%d", output, mutation.byte_size)
+        return mutation
 
     @staticmethod
     def _file_result(path: Path) -> FileResult:

@@ -118,6 +118,20 @@ Repeat `--allow-root` to authorize more than one directory. The equivalent envir
 - `ASEPRITE_MCP_MAX_CAPTURE_BYTES`
 - `ASEPRITE_MCP_EXECUTION_MODE`
 - `ASEPRITE_MCP_BRIDGE_TEMP_ROOT`
+- `ASEPRITE_MCP_LOG_LEVEL`
+
+## Logging
+
+Diagnostics are written to stderr so MCP protocol traffic on stdout remains valid. The default
+level is `INFO`. Use `DEBUG` to include executable discovery candidates, authorized roots,
+translated process arguments, bridge workspace paths, and captured Aseprite diagnostics:
+
+```console
+python main.py --log-level DEBUG --allow-root /path/to/sprites
+```
+
+Supported levels are `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`. Pixel values and complete
+bridge request payloads are not logged.
 
 ## Tools
 

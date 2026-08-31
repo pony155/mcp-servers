@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Literal
 
 from mcp.server import MCPServer
@@ -21,10 +22,13 @@ from .models import (
     SpriteSheetResult,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def build_server(settings: Settings) -> MCPServer:
     """Build a configured server without starting a transport."""
 
+    logger.info("Building Aseprite MCP server version %s", __version__)
     server = MCPServer(
         "aseprite",
         title="Aseprite MCP Server",
@@ -177,4 +181,5 @@ def build_server(settings: Settings) -> MCPServer:
             expected_source_hash=expected_source_hash,
         )
 
+    logger.info("Registered 6 Aseprite MCP tools")
     return server
