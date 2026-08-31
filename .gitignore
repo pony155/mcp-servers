@@ -1,0 +1,57 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor and IDE state
+.idea/
+.vscode/
+*.suo
+*.user
+*.swp
+*~
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Dependencies and virtual environments
+node_modules/
+.venv/
+venv/
+.python/
+.tools/
+
+# Generated build and test output
+build/
+dist/
+out/
+coverage/
+.coverage
+htmlcov/
+
+# Language and tool caches
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
+.turbo/
+.cache/
+target/
+bin/
+obj/
+
+# Aseprite backup files
+*.ase~
+*.aseprite~

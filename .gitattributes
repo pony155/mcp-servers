@@ -1,0 +1,29 @@
+# Normalize text files while keeping Windows command scripts compatible.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Aseprite documents and common media assets are binary.
+*.ase binary
+*.aseprite binary
+*.bmp binary
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.png binary
+*.webp binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+
+# Archives and fonts are binary.
+*.7z binary
+*.gz binary
+*.tar binary
+*.zip binary
+*.eot binary
+*.otf binary
+*.ttf binary
+*.woff binary
+*.woff2 binary

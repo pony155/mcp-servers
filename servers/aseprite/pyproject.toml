@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aseprite-mcp-server"
+version = "0.1.0"
+description = "A safe, local Model Context Protocol server for Aseprite"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+authors = [{ name = "MCP Servers contributors" }]
+dependencies = [
+  "mcp[cli]>=2.0,<3",
+  "pydantic>=2.11,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2,<2",
+  "mypy>=1.17,<2",
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+aseprite-mcp = "aseprite_mcp.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aseprite_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/aseprite_mcp", "tests", "README.md", "pyproject.toml"]
+
+[tool.ruff]
+extend-exclude = [".python", ".tools", ".venv"]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+packages = ["aseprite_mcp"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["integration: requires a configured Aseprite executable"]
