@@ -22,6 +22,9 @@ from .models import (
     CelInspectionResult,
     CompositedPixelReadResult,
     ContactSheetResult,
+    ExportProfile,
+    ExportProfileIssue,
+    ExportProfileValidationResult,
     FileResult,
     FrameComparisonResult,
     FrameEditOperation,
@@ -32,22 +35,26 @@ from .models import (
     MutationResult,
     PaletteAnalysisResult,
     PaletteColorInput,
+    PaletteEntryEditOperation,
     PixelInput,
     PixelReadResult,
     PixelRunInput,
     PropertyEditOperation,
+    RectangleInput,
     RenderResult,
+    SelectionEditOperation,
+    ShapeInput,
+    SliceEditOperation,
+    SpriteComparisonResult,
     SpriteInfo,
     SpriteSheetResult,
-    SliceEditOperation,
-    ShapeInput,
+    StrokeInput,
     TagEditOperation,
     TilemapCellInput,
     TilesetEditOperation,
     TilesetExportResult,
     TilesetInspectionResult,
     TilesetValidationResult,
-    SelectionEditOperation,
 )
 from .paths import (
     RENDER_EXTENSIONS,
@@ -1569,6 +1576,213 @@ class AsepriteAdapter:
             if output.stat().st_size > self.settings.max_capture_bytes:
                 raise AsepriteMCPError("LIMIT_EXCEEDED", "GIF preview exceeds inline size limit")
             return output.read_bytes()
+
+    async def crop_sprite(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        padding: int,
+        frames: list[int],
+        layers: list[str],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        return await self._bridge_mutation(
+            "crop_sprite",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "padding": padding,
+                "frames": frames,
+                "layers": layers,
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            },
+        )
+
+    async def draw_strokes(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        layer: str,
+        frame: int,
+        strokes: list[StrokeInput],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        total_points = sum(len(stroke.points) for stroke in strokes)
+        if not strokes or len(strokes) > 256 or total_points > 100_000:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", "strokes must contain 1 to 256 strokes and at most 100000 points"
+            )
+        return await self._bridge_mutation(
+            "draw_strokes",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "layer": layer,
+                "frame": frame,
+                "strokes": [stroke.model_dump() for stroke in strokes],
+            },
+        )
+
+    async def transform_selection(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        layer: str,
+        frame: int,
+        bounds: RectangleInput,
+        action: Literal[
+            "move", "copy", "flip_horizontal", "flip_vertical", "rotate_90_cw",
+            "rotate_90_ccw", "scale_nearest"
+        ],
+        offset_x: int,
+        offset_y: int,
+        scale_x: int,
+        scale_y: int,
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        return await self._bridge_mutation(
+            "transform_selection",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "layer": layer,
+                "frame": frame,
+                "bounds": bounds.model_dump(),
+                "action": action,
+                "offset_x": offset_x,
+                "offset_y": offset_y,
+                "scale_x": scale_x,
+                "scale_y": scale_y,
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            },
+        )
+
+    async def edit_palette_entries(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        operations: list[PaletteEntryEditOperation],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not operations or len(operations) > 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "operations must contain 1 to 256 items")
+        for operation in operations:
+            if operation.action in {"set", "remove", "swap"} and operation.index is None:
+                raise AsepriteMCPError("INVALID_INPUT", f"{operation.action} requires index")
+            if operation.action in {"set", "append"} and operation.color is None:
+                raise AsepriteMCPError("INVALID_INPUT", f"{operation.action} requires color")
+            if operation.action == "remove" and operation.replacement_index is None:
+                raise AsepriteMCPError("INVALID_INPUT", "remove requires replacement_index")
+            if operation.action == "swap" and operation.other_index is None:
+                raise AsepriteMCPError("INVALID_INPUT", "swap requires other_index")
+        return await self._bridge_mutation(
+            "edit_palette_entries",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "operations": [operation.model_dump() for operation in operations],
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            },
+        )
+
+    async def compare_sprites(
+        self, first_source_path: str, second_source_path: str
+    ) -> SpriteComparisonResult:
+        first = self.paths.existing_file(
+            first_source_path, extensions=SPRITE_INPUT_EXTENSIONS
+        )
+        second = self.paths.existing_file(
+            second_source_path, extensions=SPRITE_INPUT_EXTENSIONS
+        )
+        async with self._locked([first, second]):
+            result = await self._bridge(
+                "compare_sprites",
+                {
+                    "first_source_path": self._process_path(first),
+                    "second_source_path": self._process_path(second),
+                    "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+                },
+            )
+            result.update(
+                first_source_path=str(first),
+                first_sha256=sha256_file(first),
+                second_source_path=str(second),
+                second_sha256=sha256_file(second),
+            )
+        return SpriteComparisonResult.model_validate(result)
+
+    async def validate_export_profile(
+        self, source_path: str, *, profile: ExportProfile
+    ) -> ExportProfileValidationResult:
+        sprite = await self.inspect_sprite(source_path)
+        issues: list[ExportProfileIssue] = []
+
+        def add(code: str, message: str) -> None:
+            issues.append(ExportProfileIssue(code=code, severity="error", message=message))
+
+        if profile.canvas_width is not None and sprite.width != profile.canvas_width:
+            add("CANVAS_WIDTH", f"Expected width {profile.canvas_width}, found {sprite.width}")
+        if profile.canvas_height is not None and sprite.height != profile.canvas_height:
+            add("CANVAS_HEIGHT", f"Expected height {profile.canvas_height}, found {sprite.height}")
+        if profile.max_width is not None and sprite.width > profile.max_width:
+            add("MAX_WIDTH", f"Width {sprite.width} exceeds {profile.max_width}")
+        if profile.max_height is not None and sprite.height > profile.max_height:
+            add("MAX_HEIGHT", f"Height {sprite.height} exceeds {profile.max_height}")
+        if profile.require_power_of_two and (
+            sprite.width & (sprite.width - 1) or sprite.height & (sprite.height - 1)
+        ):
+            add("POWER_OF_TWO", "Canvas width and height must both be powers of two")
+        if profile.color_mode is not None and sprite.color_mode != profile.color_mode:
+            add("COLOR_MODE", f"Expected {profile.color_mode}, found {sprite.color_mode}")
+        if profile.frame_count is not None and sprite.frame_count != profile.frame_count:
+            add("FRAME_COUNT", f"Expected {profile.frame_count} frames, found {sprite.frame_count}")
+
+        layer_paths: set[str] = set()
+        stack = list(sprite.layers)
+        while stack:
+            layer = stack.pop()
+            layer_paths.add(layer.path)
+            stack.extend(layer.children)
+        tag_names = {tag.name for tag in sprite.tags}
+        slice_names = {slice_info.name for slice_info in sprite.slices}
+        for required in profile.required_layers:
+            if required not in layer_paths:
+                add("MISSING_LAYER", f"Required layer is missing: {required}")
+        for required in profile.required_tags:
+            if required not in tag_names:
+                add("MISSING_TAG", f"Required tag is missing: {required}")
+        for required in profile.required_slices:
+            if required not in slice_names:
+                add("MISSING_SLICE", f"Required slice is missing: {required}")
+        palette_size = max((palette.size for palette in sprite.palettes), default=0)
+        if profile.max_palette_colors is not None and palette_size > profile.max_palette_colors:
+            add(
+                "PALETTE_SIZE",
+                f"Palette size {palette_size} exceeds {profile.max_palette_colors}",
+            )
+        return ExportProfileValidationResult(
+            source_path=sprite.source_path,
+            sha256=sprite.sha256,
+            profile_name=profile.name,
+            valid=not issues,
+            issues=issues,
+        )
 
     async def _bridge_mutation(
         self,

@@ -363,6 +363,14 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
 - Tileset inspection, tilemap cell editing, validation, and PNG/JSON export complete the first
   tile-production workflow.
 - `aseprite_preview_animation` returns a bounded inline GIF for direct client review.
+- `aseprite_crop_sprite`, `aseprite_draw_strokes`, and `aseprite_transform_selection` add bounded
+  canvas cleanup, freehand pixel work, and deterministic rectangular transforms.
+- `aseprite_edit_palette_entries` provides index-aware palette maintenance with explicit
+  replacement behavior for removals.
+- `aseprite_compare_sprites` reports structural, metadata, and composited-pixel regressions between
+  two authorized documents.
+- `aseprite_validate_export_profile` checks normalized sprite metadata against an explicit,
+  client-supplied engine handoff contract.
 
 All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
 normalized mutation results, and optimistic source-hash guards where a source document is edited.

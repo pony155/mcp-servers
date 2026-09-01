@@ -177,6 +177,12 @@ bridge request payloads are not logged.
 | `aseprite_validate_tileset` | Detect empty, duplicate, and edge-mismatched tiles. | No |
 | `aseprite_export_tileset` | Export a tileset PNG grid and JSON metadata. | Yes |
 | `aseprite_preview_animation` | Return an inline animated GIF. | No |
+| `aseprite_crop_sprite` | Crop the canvas to selected visible content with padding. | Yes |
+| `aseprite_draw_strokes` | Draw bounded pencil strokes with explicit brush settings. | Yes |
+| `aseprite_transform_selection` | Transform an explicit rectangular pixel region. | Yes |
+| `aseprite_edit_palette_entries` | Set, append, remove, or swap palette entries. | Yes |
+| `aseprite_compare_sprites` | Compare sprite structure, metadata, and frame pixels. | No |
+| `aseprite_validate_export_profile` | Check an asset against an explicit export contract. | No |
 
 Frame indices are zero-based. Layer selectors are exact hierarchy paths such as `Character/Outline`.
 
@@ -252,8 +258,20 @@ placement while reducing transparent image borders.
 Slices support frame-specific bounds, optional local nine-slice centers, and local pivots. Scalar
 user properties can target sprites, layers, tags, slices, and cels. Color-mode conversion uses the
 documented Aseprite conversion command with explicit dithering choices. Tileset editing supports
-bounded tileset creation, renaming, tile insertion/removal, and tile pixel replacement; tilemap
-layout editing is outside this version's scope.
+bounded tileset creation, renaming, tile insertion/removal, and tile pixel replacement. Tilemap
+cell editing is available separately through `aseprite_edit_tilemap`.
+
+Cropping derives a union of visible non-tilemap pixels across optional frame and layer selections,
+then applies clipped transparent padding. Stroke drawing accepts only bounded pencil point lists.
+Selection transforms use explicit rectangular bounds and support move, copy, flips, quarter-turns,
+and integer nearest-neighbor scaling without depending on Aseprite's interactive selection UI.
+
+Palette-entry edits run sequentially. Removing an entry requires a replacement index; indexed
+pixels and the transparent index are remapped to retain valid indices. Swaps preserve indexed
+appearance by default. Sprite comparison checks dimensions, frame count, color mode, layer
+structure, tags, slices, and composited RGBA pixels. Export profiles can require exact or maximum
+dimensions, power-of-two canvases, color mode, frame count, named layers/tags/slices, and a maximum
+palette size.
 
 ### Sprite-production skill
 

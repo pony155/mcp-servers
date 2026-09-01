@@ -396,6 +396,91 @@ class TilesetExportResult(StrictModel):
     tileset: str
 
 
+class StrokeInput(StrictModel):
+    points: Annotated[list[PointInput], Field(min_length=1, max_length=4096)]
+    color: str
+    brush_size: Annotated[int, Field(ge=1, le=64)] = 1
+    opacity: Annotated[int, Field(ge=1, le=255)] = 255
+    pixel_perfect: bool = True
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, value: str) -> str:
+        return _validate_hex_color(value)
+
+
+class PaletteEntryEditOperation(StrictModel):
+    action: Literal["set", "append", "remove", "swap"]
+    index: Annotated[int | None, Field(ge=0, le=255)] = None
+    other_index: Annotated[int | None, Field(ge=0, le=255)] = None
+    replacement_index: Annotated[int | None, Field(ge=0, le=255)] = None
+    color: str | None = None
+    preserve_appearance: bool = True
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, value: str | None) -> str | None:
+        return _validate_hex_color(value) if value is not None else None
+
+
+class SpriteFrameDifference(StrictModel):
+    frame: int
+    changed_pixel_count: int
+    changed_bounds: RectangleInfo | None
+
+
+class SpriteComparisonResult(StrictModel):
+    first_source_path: str
+    first_sha256: str
+    second_source_path: str
+    second_sha256: str
+    identical: bool
+    same_dimensions: bool
+    same_frame_count: bool
+    same_color_mode: bool
+    same_palette: bool
+    same_layer_structure: bool
+    same_tags: bool
+    same_slices: bool
+    changed_pixel_count: int
+    changed_frames: list[SpriteFrameDifference]
+
+
+class ExportProfile(StrictModel):
+    name: Annotated[str, Field(min_length=1, max_length=128)] = "custom"
+    canvas_width: Annotated[int | None, Field(ge=1, le=4096)] = None
+    canvas_height: Annotated[int | None, Field(ge=1, le=4096)] = None
+    max_width: Annotated[int | None, Field(ge=1, le=4096)] = None
+    max_height: Annotated[int | None, Field(ge=1, le=4096)] = None
+    require_power_of_two: bool = False
+    color_mode: Literal["rgb", "grayscale", "indexed"] | None = None
+    frame_count: Annotated[int | None, Field(ge=1, le=256)] = None
+    required_layers: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=256)]], Field(max_length=128)
+    ] = Field(default_factory=list)
+    required_tags: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=128)]], Field(max_length=256)
+    ] = Field(default_factory=list)
+    required_slices: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=128)]], Field(max_length=256)
+    ] = Field(default_factory=list)
+    max_palette_colors: Annotated[int | None, Field(ge=1, le=256)] = None
+
+
+class ExportProfileIssue(StrictModel):
+    code: str
+    severity: Literal["warning", "error"]
+    message: str
+
+
+class ExportProfileValidationResult(StrictModel):
+    source_path: str
+    sha256: str
+    profile_name: str
+    valid: bool
+    issues: list[ExportProfileIssue]
+
+
 class FrameEditOperation(StrictModel):
     action: Literal["add", "duplicate", "remove", "set_duration"]
     frame: Annotated[int, Field(ge=0)]

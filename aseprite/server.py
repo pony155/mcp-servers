@@ -19,6 +19,8 @@ from .models import (
     CelInspectionResult,
     CompositedPixelReadResult,
     ContactSheetResult,
+    ExportProfile,
+    ExportProfileValidationResult,
     FrameComparisonResult,
     FrameEditOperation,
     FrameDefinition,
@@ -28,16 +30,20 @@ from .models import (
     MutationResult,
     PaletteAnalysisResult,
     PaletteColorInput,
+    PaletteEntryEditOperation,
     PixelInput,
     PixelReadResult,
     PixelRunInput,
     PropertyEditOperation,
-    SelectionEditOperation,
+    RectangleInput,
     RenderResult,
+    SelectionEditOperation,
+    ShapeInput,
+    SliceEditOperation,
+    SpriteComparisonResult,
     SpriteInfo,
     SpriteSheetResult,
-    SliceEditOperation,
-    ShapeInput,
+    StrokeInput,
     TagEditOperation,
     TilemapCellInput,
     TilesetEditOperation,
@@ -869,5 +875,129 @@ def build_server(settings: Settings) -> MCPServer:
         return Image(data=await adapter.preview_animation(source_path, tag=tag, scale=scale),
                      format="gif")
 
-    logger.info("Registered 40 Aseprite MCP tools")
+    @server.tool()
+    async def aseprite_crop_sprite(
+        source_path: str,
+        output_path: str,
+        padding: Annotated[int, Field(ge=0, le=4096)] = 0,
+        frames: Annotated[
+            list[Annotated[int, Field(ge=0)]] | None, Field(max_length=256)
+        ] = None,
+        layers: Annotated[
+            list[Annotated[str, Field(min_length=1, max_length=256)]] | None,
+            Field(max_length=128),
+        ] = None,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Crop the canvas to visible pixels in selected frames and layers, with padding."""
+        return await adapter.crop_sprite(
+            source_path,
+            output_path,
+            padding=padding,
+            frames=frames or [],
+            layers=layers or [],
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_draw_strokes(
+        source_path: str,
+        output_path: str,
+        layer: Annotated[str, Field(min_length=1, max_length=256)],
+        frame: Annotated[int, Field(ge=0)],
+        strokes: Annotated[list[StrokeInput], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Draw bounded pencil strokes with explicit points, brush size, and opacity."""
+        return await adapter.draw_strokes(
+            source_path,
+            output_path,
+            layer=layer,
+            frame=frame,
+            strokes=strokes,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_transform_selection(
+        source_path: str,
+        output_path: str,
+        layer: Annotated[str, Field(min_length=1, max_length=256)],
+        frame: Annotated[int, Field(ge=0)],
+        bounds: RectangleInput,
+        action: Literal[
+            "move", "copy", "flip_horizontal", "flip_vertical", "rotate_90_cw",
+            "rotate_90_ccw", "scale_nearest"
+        ],
+        offset_x: Annotated[int, Field(ge=-4096, le=4096)] = 0,
+        offset_y: Annotated[int, Field(ge=-4096, le=4096)] = 0,
+        scale_x: Annotated[int, Field(ge=1, le=16)] = 1,
+        scale_y: Annotated[int, Field(ge=1, le=16)] = 1,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Move, copy, flip, quarter-turn, or nearest-neighbor scale a rectangular pixel region."""
+        return await adapter.transform_selection(
+            source_path,
+            output_path,
+            layer=layer,
+            frame=frame,
+            bounds=bounds,
+            action=action,
+            offset_x=offset_x,
+            offset_y=offset_y,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_edit_palette_entries(
+        source_path: str,
+        output_path: str,
+        operations: Annotated[
+            list[PaletteEntryEditOperation], Field(min_length=1, max_length=256)
+        ],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Set, append, remove, or swap indexed palette entries safely."""
+        return await adapter.edit_palette_entries(
+            source_path,
+            output_path,
+            operations=operations,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_compare_sprites(
+        first_source_path: str,
+        second_source_path: str,
+    ) -> SpriteComparisonResult:
+        """Compare two sprites' structure, metadata, and composited frame pixels."""
+        return await adapter.compare_sprites(first_source_path, second_source_path)
+
+    @server.tool()
+    async def aseprite_validate_export_profile(
+        source_path: str,
+        profile: ExportProfile,
+    ) -> ExportProfileValidationResult:
+        """Validate a sprite against explicit engine-facing dimensions and naming requirements."""
+        return await adapter.validate_export_profile(source_path, profile=profile)
+
+    logger.info("Registered 46 Aseprite MCP tools")
     return server
