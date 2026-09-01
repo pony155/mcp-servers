@@ -16,14 +16,20 @@ from .models import (
     AnimationFrameDefinition,
     AnimationTagDefinition,
     AnimationValidationResult,
+    AssetSetValidationResult,
+    AtlasResult,
+    BatchExportJob,
+    BatchExportResult,
     CelInspectionResult,
     CompositedPixelReadResult,
     ContactSheetResult,
+    CollisionMaskResult,
     ExportProfile,
     ExportProfileValidationResult,
     FrameComparisonResult,
     FrameEditOperation,
     FrameDefinition,
+    FileResult,
     HealthResult,
     LayerDefinition,
     LayerEditOperation,
@@ -40,6 +46,8 @@ from .models import (
     SelectionEditOperation,
     ShapeInput,
     SliceEditOperation,
+    SliceExtractionInput,
+    SliceExtractionResult,
     SpriteComparisonResult,
     SpriteInfo,
     SpriteSheetResult,
@@ -999,5 +1007,122 @@ def build_server(settings: Settings) -> MCPServer:
         """Validate a sprite against explicit engine-facing dimensions and naming requirements."""
         return await adapter.validate_export_profile(source_path, profile=profile)
 
-    logger.info("Registered 46 Aseprite MCP tools")
+    @server.tool()
+    async def aseprite_pack_atlas(
+        source_paths: Annotated[list[str], Field(min_length=1, max_length=64)],
+        image_output_path: str,
+        data_output_path: str,
+        width: Annotated[int | None, Field(ge=1, le=16384)] = None,
+        height: Annotated[int | None, Field(ge=1, le=16384)] = None,
+        trim: bool = True,
+        extrude: bool = False,
+        border_padding: Annotated[int, Field(ge=0, le=1024)] = 0,
+        shape_padding: Annotated[int, Field(ge=0, le=1024)] = 1,
+        inner_padding: Annotated[int, Field(ge=0, le=1024)] = 0,
+        overwrite: bool = False,
+    ) -> AtlasResult:
+        """Pack up to 64 authorized sprite files into a PNG atlas and JSON metadata."""
+        return await adapter.pack_atlas(
+            source_paths, image_output_path, data_output_path, width=width, height=height,
+            trim=trim, extrude=extrude, border_padding=border_padding,
+            shape_padding=shape_padding, inner_padding=inner_padding, overwrite=overwrite,
+        )
+
+    @server.tool()
+    async def aseprite_quantize_palette(
+        source_path: str,
+        output_path: str,
+        color_count: Annotated[int, Field(ge=2, le=256)] = 32,
+        algorithm: Literal["default", "octree", "rgb5a3"] = "octree",
+        dithering: Literal["none", "ordered", "error-diffusion"] = "none",
+        dithering_matrix: Literal["bayer2x2", "bayer4x4", "bayer8x8"] = "bayer4x4",
+        include_alpha: bool = True,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Create a bounded palette and convert a document to indexed color."""
+        return await adapter.quantize_palette(
+            source_path, output_path, color_count=color_count, algorithm=algorithm,
+            dithering=dithering, dithering_matrix=dithering_matrix,
+            include_alpha=include_alpha, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_import_palette(
+        source_path: str,
+        palette_path: str,
+        output_path: str,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Load a supported palette file into a new sprite-document revision."""
+        return await adapter.import_palette(
+            source_path, palette_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_export_palette(
+        source_path: str,
+        output_path: str,
+        overwrite: bool = False,
+    ) -> FileResult:
+        """Export the first sprite palette to an authorized palette file."""
+        return await adapter.export_palette(source_path, output_path, overwrite=overwrite)
+
+    @server.tool()
+    async def aseprite_extract_slices(
+        source_path: str,
+        extractions: Annotated[list[SliceExtractionInput], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+    ) -> SliceExtractionResult:
+        """Render explicitly named slice/frame pairs to explicit PNG output paths."""
+        return await adapter.extract_slices(
+            source_path, extractions=extractions, overwrite=overwrite
+        )
+
+    @server.tool()
+    async def aseprite_generate_collision_masks(
+        source_path: str,
+        frames: Annotated[
+            list[Annotated[int, Field(ge=0)]] | None, Field(max_length=256)
+        ] = None,
+        layer: Annotated[str | None, Field(min_length=1, max_length=256)] = None,
+        mode: Literal["bounds", "components"] = "components",
+        alpha_threshold: Annotated[int, Field(ge=1, le=255)] = 1,
+        max_components: Annotated[int, Field(ge=1, le=1024)] = 128,
+    ) -> CollisionMaskResult:
+        """Derive per-frame collision rectangles from composited or layer alpha."""
+        return await adapter.generate_collision_masks(
+            source_path, frames=frames or [], layer=layer, mode=mode,
+            alpha_threshold=alpha_threshold, max_components=max_components,
+        )
+
+    @server.tool()
+    async def aseprite_batch_export(
+        jobs: Annotated[list[BatchExportJob], Field(min_length=1, max_length=64)],
+    ) -> BatchExportResult:
+        """Export bounded sprite-sheet jobs independently and report per-job failures."""
+        return await adapter.batch_export(jobs)
+
+    @server.tool()
+    async def aseprite_validate_asset_set(
+        source_paths: Annotated[list[str], Field(min_length=1, max_length=64)],
+        profile: ExportProfile,
+        require_consistent_dimensions: bool = True,
+        require_consistent_color_mode: bool = True,
+    ) -> AssetSetValidationResult:
+        """Validate multiple assets against one profile and cross-asset consistency rules."""
+        return await adapter.validate_asset_set(
+            source_paths, profile=profile,
+            require_consistent_dimensions=require_consistent_dimensions,
+            require_consistent_color_mode=require_consistent_color_mode,
+        )
+
+    logger.info("Registered 54 Aseprite MCP tools")
     return server

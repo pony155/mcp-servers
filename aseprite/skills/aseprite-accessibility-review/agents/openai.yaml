@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Accessibility Review"
+  short_description: "Review sprite contrast color motion and flashing"
+  default_prompt: "Use $aseprite-accessibility-review to audit this sprite for visual accessibility."

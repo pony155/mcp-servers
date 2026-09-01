@@ -183,6 +183,14 @@ bridge request payloads are not logged.
 | `aseprite_edit_palette_entries` | Set, append, remove, or swap palette entries. | Yes |
 | `aseprite_compare_sprites` | Compare sprite structure, metadata, and frame pixels. | No |
 | `aseprite_validate_export_profile` | Check an asset against an explicit export contract. | No |
+| `aseprite_pack_atlas` | Pack multiple authorized sprites into a PNG/JSON atlas. | Yes |
+| `aseprite_quantize_palette` | Quantize and convert a document to indexed color. | Yes |
+| `aseprite_import_palette` | Load a supported palette into a document revision. | Yes |
+| `aseprite_export_palette` | Export the first sprite palette to a standard file. | Yes |
+| `aseprite_extract_slices` | Render named slice/frame pairs to explicit PNG paths. | Yes |
+| `aseprite_generate_collision_masks` | Derive bounds or component rectangles from alpha. | No |
+| `aseprite_batch_export` | Run bounded sprite-sheet exports independently. | Yes |
+| `aseprite_validate_asset_set` | Validate a bounded set and cross-asset consistency. | No |
 
 Frame indices are zero-based. Layer selectors are exact hierarchy paths such as `Character/Outline`.
 
@@ -273,6 +281,17 @@ structure, tags, slices, and composited RGBA pixels. Export profiles can require
 dimensions, power-of-two canvases, color mode, frame count, named layers/tags/slices, and a maximum
 palette size.
 
+Atlas packing accepts up to 64 explicit sources and uses Aseprite's deterministic packed-sheet
+export. Palette quantization uses Aseprite's documented quantizer and indexed conversion options.
+Palette import replaces palette entries; on indexed sprites, existing pixel indices are retained,
+so colors can change intentionally. Slice extraction requires every output path explicitly and
+publishes files only after all requested slices render successfully.
+
+Collision masks are rectangular approximations derived from a composited frame or exact image
+layer. Batch export reports each job independently and does not roll back already published jobs.
+Asset-set validation applies one export profile per document and can additionally require matching
+dimensions and color modes across the set.
+
 ### Sprite-production skill
 
 Distributable Codex skills are under [`skills`](skills):
@@ -289,6 +308,14 @@ Distributable Codex skills are under [`skills`](skills):
 - `aseprite-fighting-game-animation` for frame-data-driven combat motion.
 - `aseprite-color-variant-production` for controlled palette variants.
 - `aseprite-batch-asset-pipeline` for consistent multi-asset validation and export.
+- `aseprite-character-animation-set` for coherent full character state families.
+- `aseprite-vfx-production` for readable looping and one-shot visual effects.
+- `aseprite-environment-prop-production` for stateful props and collision metadata.
+- `aseprite-isometric-tile-production` for projection-safe isometric tile families.
+- `aseprite-engine-export-profile` for schema-driven engine handoff.
+- `aseprite-accessibility-review` for contrast, color, and motion review.
+- `aseprite-atlas-production` for deterministic multi-asset atlas workflows.
+- `aseprite-directional-animation` for consistent four-way or eight-way animation.
 
 Copy the desired directories into your Codex skills directory (normally `$CODEX_HOME/skills`) and
 restart Codex to make them available.

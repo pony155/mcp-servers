@@ -19,9 +19,16 @@ from .models import (
     AnimationFrameDefinition,
     AnimationTagDefinition,
     AnimationValidationResult,
+    AssetSetValidationResult,
+    AssetValidationItem,
+    AtlasResult,
+    BatchExportItem,
+    BatchExportJob,
+    BatchExportResult,
     CelInspectionResult,
     CompositedPixelReadResult,
     ContactSheetResult,
+    CollisionMaskResult,
     ExportProfile,
     ExportProfileIssue,
     ExportProfileValidationResult,
@@ -45,6 +52,9 @@ from .models import (
     SelectionEditOperation,
     ShapeInput,
     SliceEditOperation,
+    SliceExtractionInput,
+    SliceExtractionItem,
+    SliceExtractionResult,
     SpriteComparisonResult,
     SpriteInfo,
     SpriteSheetResult,
@@ -79,6 +89,7 @@ MAX_ANIMATION_PIXEL_EDITS = 100_000
 MAX_VALIDATION_PIXEL_VISITS = 16_777_216
 MAX_PIXEL_READS = 65_536
 MAX_PIXEL_RUN_EDITS = 100_000
+PALETTE_EXTENSIONS = frozenset({".act", ".col", ".gpl", ".hex", ".pal", ".png"})
 CANVAS_ANCHORS = frozenset(
     {
         "top-left",
@@ -452,6 +463,10 @@ class AsepriteAdapter:
         data_output = self.paths.output_file(
             data_output_path, extensions=frozenset({".json"}), overwrite=overwrite
         )
+        if image_output == data_output or image_output in sources or data_output in sources:
+            raise AsepriteMCPError(
+                "PATH_NOT_ALLOWED", "Atlas outputs must differ from each other and every source"
+            )
         if image_output == data_output:
             raise AsepriteMCPError("PATH_NOT_ALLOWED", "Image and data outputs must differ")
         for value in (border_padding, shape_padding, inner_padding):
@@ -537,8 +552,8 @@ class AsepriteAdapter:
         self,
         output_path: str,
         *,
-        width: int,
-        height: int,
+        width: int | None,
+        height: int | None,
         color_mode: Literal["rgb", "grayscale", "indexed"],
         layers: list[LayerDefinition],
         frames: list[FrameDefinition],
@@ -1782,6 +1797,254 @@ class AsepriteAdapter:
             profile_name=profile.name,
             valid=not issues,
             issues=issues,
+        )
+
+    async def pack_atlas(
+        self,
+        source_paths: list[str],
+        image_output_path: str,
+        data_output_path: str,
+        *,
+        width: int,
+        height: int,
+        trim: bool,
+        extrude: bool,
+        border_padding: int,
+        shape_padding: int,
+        inner_padding: int,
+        overwrite: bool,
+    ) -> AtlasResult:
+        if not 1 <= len(source_paths) <= 64:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "source_paths must contain 1 to 64 files")
+        if width is not None and not 1 <= width <= 16_384:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "atlas width must be between 1 and 16384")
+        if height is not None and not 1 <= height <= 16_384:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "atlas height must be between 1 and 16384")
+        if any(value < 0 or value > 1024 for value in (
+            border_padding, shape_padding, inner_padding
+        )):
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "atlas padding must be between 0 and 1024")
+        sources = [
+            self.paths.existing_file(path, extensions=SPRITE_INPUT_EXTENSIONS)
+            for path in source_paths
+        ]
+        image_output = self.paths.output_file(
+            image_output_path, extensions=frozenset({".png"}), overwrite=overwrite
+        )
+        data_output = self.paths.output_file(
+            data_output_path, extensions=frozenset({".json"}), overwrite=overwrite
+        )
+        image_temp, data_temp = temporary_sibling(image_output), temporary_sibling(data_output)
+        arguments = ["--batch", "--noinapp", *[self._process_path(path) for path in sources]]
+        arguments.append("--sheet-pack")
+        if width is not None:
+            arguments.extend(["--sheet-width", str(width)])
+        if height is not None:
+            arguments.extend(["--sheet-height", str(height)])
+        if trim:
+            arguments.append("--trim")
+        if extrude:
+            arguments.append("--extrude")
+        for flag, value in (
+            ("--border-padding", border_padding),
+            ("--shape-padding", shape_padding),
+            ("--inner-padding", inner_padding),
+        ):
+            if value:
+                arguments.extend([flag, str(value)])
+        arguments.extend([
+            "--sheet", self._process_path(image_temp), "--format", "json-array",
+            "--data", self._process_path(data_temp),
+        ])
+        async with self._locked([*sources, image_output, data_output]):
+            try:
+                await self._run(arguments, operation="pack_atlas")
+                if not image_temp.is_file() or not data_temp.is_file():
+                    raise AsepriteMCPError(
+                        "ASEPRITE_FAILED", "Aseprite did not create atlas outputs"
+                    )
+                metadata = json.loads(data_temp.read_text(encoding="utf-8-sig"))
+                frame_count = len(metadata.get("frames", []))
+                atlas_size = metadata.get("meta", {}).get("size", {})
+                atlas_width = int(atlas_size.get("w", 0))
+                atlas_height = int(atlas_size.get("h", 0))
+                if (
+                    atlas_width < 1
+                    or atlas_height < 1
+                    or atlas_width > 16_384
+                    or atlas_height > 16_384
+                    or atlas_width * atlas_height > MAX_CANVAS_PIXELS
+                ):
+                    raise AsepriteMCPError(
+                        "LIMIT_EXCEEDED", "Generated atlas dimensions exceed the server limit"
+                    )
+                publish_file(image_temp, image_output)
+                publish_file(data_temp, data_output)
+            except json.JSONDecodeError as exc:
+                raise AsepriteMCPError(
+                    "ASEPRITE_FAILED", "Aseprite produced invalid atlas JSON"
+                ) from exc
+            finally:
+                image_temp.unlink(missing_ok=True)
+                data_temp.unlink(missing_ok=True)
+        return AtlasResult(
+            image=self._file_result(image_output), data=self._file_result(data_output),
+            source_count=len(sources), frame_count=frame_count,
+        )
+
+    async def quantize_palette(
+        self, source_path: str, output_path: str, *, color_count: int,
+        algorithm: Literal["default", "octree", "rgb5a3"],
+        dithering: Literal["none", "ordered", "error-diffusion"],
+        dithering_matrix: Literal["bayer2x2", "bayer4x4", "bayer8x8"],
+        include_alpha: bool, overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        return await self._bridge_mutation(
+            "quantize_palette", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"color_count": color_count, "algorithm": algorithm,
+                     "dithering": dithering, "dithering_matrix": dithering_matrix,
+                     "include_alpha": include_alpha},
+        )
+
+    async def import_palette(
+        self, source_path: str, palette_path: str, output_path: str, *,
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        palette = self.paths.existing_file(palette_path, extensions=PALETTE_EXTENSIONS)
+        return await self._bridge_mutation(
+            "import_palette", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"palette_path": self._process_path(palette)},
+        )
+
+    async def export_palette(
+        self, source_path: str, output_path: str, *, overwrite: bool,
+    ) -> FileResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        output = self.paths.output_file(
+            output_path, extensions=PALETTE_EXTENSIONS - {".png"}, overwrite=overwrite
+        )
+        temporary = temporary_sibling(output)
+        async with self._locked([source, output]):
+            try:
+                await self._bridge("export_palette", {
+                    "source_path": self._process_path(source),
+                    "output_path": self._process_path(temporary),
+                })
+                if not temporary.is_file():
+                    raise AsepriteMCPError("ASEPRITE_FAILED", "Aseprite did not export the palette")
+                publish_file(temporary, output)
+            finally:
+                temporary.unlink(missing_ok=True)
+        return self._file_result(output)
+
+    async def extract_slices(
+        self, source_path: str, *, extractions: list[SliceExtractionInput], overwrite: bool,
+    ) -> SliceExtractionResult:
+        if not 1 <= len(extractions) <= 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "extractions must contain 1 to 256 items")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        outputs = [self.paths.output_file(
+            item.output_path, extensions=frozenset({".png"}), overwrite=overwrite
+        ) for item in extractions]
+        if len(set(outputs)) != len(outputs):
+            raise AsepriteMCPError("INVALID_INPUT", "slice output paths must be unique")
+        if source in outputs:
+            raise AsepriteMCPError("PATH_NOT_ALLOWED", "slice output cannot replace its source")
+        temporaries = [temporary_sibling(path) for path in outputs]
+        async with self._locked([source, *outputs]):
+            try:
+                result = await self._bridge("extract_slices", {
+                    "source_path": self._process_path(source),
+                    "extractions": [{"name": item.name, "frame": item.frame,
+                        "output_path": self._process_path(temp)}
+                        for item, temp in zip(extractions, temporaries, strict=True)],
+                })
+                if not all(path.is_file() for path in temporaries):
+                    raise AsepriteMCPError("ASEPRITE_FAILED", "Aseprite did not create every slice")
+                for temporary, output in zip(temporaries, outputs, strict=True):
+                    publish_file(temporary, output)
+            finally:
+                for temporary in temporaries:
+                    temporary.unlink(missing_ok=True)
+        items = [SliceExtractionItem(
+            name=extraction.name, frame=extraction.frame, file=self._file_result(output),
+            bounds=result["items"][index]["bounds"], pivot=result["items"][index].get("pivot"),
+        ) for index, (extraction, output) in enumerate(zip(extractions, outputs, strict=True))]
+        return SliceExtractionResult(
+            source_path=str(source), sha256=sha256_file(source), items=items
+        )
+
+    async def generate_collision_masks(
+        self, source_path: str, *, frames: list[int], layer: str | None,
+        mode: Literal["bounds", "components"], alpha_threshold: int, max_components: int,
+    ) -> CollisionMaskResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge("generate_collision_masks", {
+                "source_path": self._process_path(source), "frames": frames,
+                "layer": layer, "mode": mode, "alpha_threshold": alpha_threshold,
+                "max_components": max_components,
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            })
+            result.update(source_path=str(source), sha256=sha256_file(source), mode=mode)
+        return CollisionMaskResult.model_validate(result)
+
+    async def batch_export(self, jobs: list[BatchExportJob]) -> BatchExportResult:
+        if not 1 <= len(jobs) <= 64:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "jobs must contain 1 to 64 items")
+        items: list[BatchExportItem] = []
+        for job in jobs:
+            try:
+                result = await self.export_sprite_sheet(
+                    job.source_path, job.image_output_path, job.data_output_path,
+                    layout=job.layout, tag=job.tag, layers=job.layers, trim=job.trim,
+                    extrude=job.extrude, border_padding=job.border_padding,
+                    shape_padding=job.shape_padding, inner_padding=job.inner_padding,
+                    overwrite=job.overwrite,
+                )
+                items.append(BatchExportItem(source_path=job.source_path, ok=True, result=result))
+            except AsepriteMCPError as exc:
+                items.append(BatchExportItem(
+                    source_path=job.source_path, ok=False,
+                    error_code=exc.code, error_message=exc.message,
+                ))
+        succeeded = sum(item.ok for item in items)
+        return BatchExportResult(succeeded=succeeded, failed=len(items)-succeeded, items=items)
+
+    async def validate_asset_set(
+        self, source_paths: list[str], *, profile: ExportProfile,
+        require_consistent_dimensions: bool, require_consistent_color_mode: bool,
+    ) -> AssetSetValidationResult:
+        if not 1 <= len(source_paths) <= 64:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "source_paths must contain 1 to 64 files")
+        items: list[AssetValidationItem] = []
+        infos: list[SpriteInfo] = []
+        for path in source_paths:
+            infos.append(await self.inspect_sprite(path))
+            items.append(AssetValidationItem(
+                source_path=path, result=await self.validate_export_profile(path, profile=profile)
+            ))
+        issues: list[ExportProfileIssue] = []
+        if len({Path(info.source_path).name.casefold() for info in infos}) != len(infos):
+            issues.append(ExportProfileIssue(
+                code="DUPLICATE_NAME", severity="error",
+                message="Asset set contains duplicate case-insensitive filenames",
+            ))
+        if require_consistent_dimensions and len({(info.width, info.height) for info in infos}) > 1:
+            issues.append(ExportProfileIssue(
+                code="INCONSISTENT_DIMENSIONS", severity="error",
+                message="Asset set contains different canvas dimensions",
+            ))
+        if require_consistent_color_mode and len({info.color_mode for info in infos}) > 1:
+            issues.append(ExportProfileIssue(
+                code="INCONSISTENT_COLOR_MODE", severity="error",
+                message="Asset set contains different color modes",
+            ))
+        valid = not issues and all(item.result.valid for item in items)
+        return AssetSetValidationResult(
+            valid=valid, profile_name=profile.name, items=items, issues=issues
         )
 
     async def _bridge_mutation(

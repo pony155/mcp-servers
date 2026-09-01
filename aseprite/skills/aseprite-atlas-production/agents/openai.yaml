@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Atlas Production"
+  short_description: "Normalize validate and pack deterministic atlases"
+  default_prompt: "Use $aseprite-atlas-production to validate and pack these sprites into an atlas."

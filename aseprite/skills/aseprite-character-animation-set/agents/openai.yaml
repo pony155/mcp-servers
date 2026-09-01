@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Character Animation Set"
+  short_description: "Coordinate complete character animation families"
+  default_prompt: "Use $aseprite-character-animation-set to plan and produce a consistent character animation family."

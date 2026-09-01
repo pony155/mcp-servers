@@ -481,6 +481,95 @@ class ExportProfileValidationResult(StrictModel):
     issues: list[ExportProfileIssue]
 
 
+class AtlasResult(StrictModel):
+    image: FileResult
+    data: FileResult
+    source_count: int
+    frame_count: int
+
+
+class SliceExtractionInput(StrictModel):
+    name: Annotated[str, Field(min_length=1, max_length=128)]
+    frame: Annotated[int, Field(ge=0)] = 0
+    output_path: str
+
+
+class SliceExtractionItem(StrictModel):
+    name: str
+    frame: int
+    file: FileResult
+    bounds: RectangleInfo
+    pivot: PointInfo | None = None
+
+
+class SliceExtractionResult(StrictModel):
+    source_path: str
+    sha256: str
+    items: list[SliceExtractionItem]
+
+
+class CollisionRectangle(StrictModel):
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+class CollisionFrame(StrictModel):
+    frame: int
+    rectangles: list[CollisionRectangle]
+
+
+class CollisionMaskResult(StrictModel):
+    source_path: str
+    sha256: str
+    mode: Literal["bounds", "components"]
+    frames: list[CollisionFrame]
+
+
+class BatchExportJob(StrictModel):
+    source_path: str
+    image_output_path: str
+    data_output_path: str
+    layout: Literal["horizontal", "vertical", "rows", "columns", "packed"] = "packed"
+    tag: Annotated[str | None, Field(min_length=1, max_length=128)] = None
+    layers: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=256)]], Field(max_length=128)
+    ] = Field(default_factory=list)
+    trim: bool = False
+    extrude: bool = False
+    border_padding: Annotated[int, Field(ge=0, le=1024)] = 0
+    shape_padding: Annotated[int, Field(ge=0, le=1024)] = 0
+    inner_padding: Annotated[int, Field(ge=0, le=1024)] = 0
+    overwrite: bool = False
+
+
+class BatchExportItem(StrictModel):
+    source_path: str
+    ok: bool
+    result: SpriteSheetResult | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+
+
+class BatchExportResult(StrictModel):
+    succeeded: int
+    failed: int
+    items: list[BatchExportItem]
+
+
+class AssetValidationItem(StrictModel):
+    source_path: str
+    result: ExportProfileValidationResult
+
+
+class AssetSetValidationResult(StrictModel):
+    valid: bool
+    profile_name: str
+    items: list[AssetValidationItem]
+    issues: list[ExportProfileIssue]
+
+
 class FrameEditOperation(StrictModel):
     action: Literal["add", "duplicate", "remove", "set_duration"]
     frame: Annotated[int, Field(ge=0)]

@@ -371,6 +371,10 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
   two authorized documents.
 - `aseprite_validate_export_profile` checks normalized sprite metadata against an explicit,
   client-supplied engine handoff contract.
+- Atlas packing, palette import/export and quantization, explicit slice extraction, and collision
+  mask derivation cover common engine-preparation operations without exposing arbitrary CLI flags.
+- Bounded batch export reports per-job outcomes, while asset-set validation applies one profile and
+  optional cross-asset dimension and color-mode invariants.
 
 All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
 normalized mutation results, and optimistic source-hash guards where a source document is edited.

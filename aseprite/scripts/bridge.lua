@@ -2009,6 +2009,142 @@ operations.compare_sprites = function(input)
     changed_pixel_count=total_changed, changed_frames=changed_frames}
 end
 
+operations.quantize_palette = function(input)
+  local sprite = open_sprite(input.source_path)
+  app.sprite = sprite
+  app.transaction("MCP quantize palette", function()
+    app.command.ColorQuantization {
+      ui = false,
+      withAlpha = input.include_alpha,
+      maxColors = input.color_count,
+      useRange = false,
+      algorithm = input.algorithm
+    }
+    local options = {format="indexed", rgbmap=input.algorithm}
+    if input.dithering ~= "none" then
+      options.dithering = input.dithering
+      options["dithering-matrix"] = input.dithering_matrix
+    end
+    app.command.ChangePixelFormat(options)
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+operations.import_palette = function(input)
+  local sprite = open_sprite(input.source_path)
+  local palette = Palette {fromFile=input.palette_path}
+  if palette == nil or #palette < 1 or #palette > 256 then
+    fail("INVALID_PALETTE", "palette file could not be loaded or exceeds 256 colors")
+  end
+  app.transaction("MCP import palette", function() sprite:setPalette(palette) end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+operations.export_palette = function(input)
+  local sprite = open_sprite(input.source_path)
+  local palette = sprite.palettes[1]
+  if palette == nil then fail("INVALID_SPRITE", "sprite does not contain a palette") end
+  local saved = palette:saveAs(input.output_path)
+  if saved == false then fail("ASEPRITE_FAILED", "Aseprite could not export the palette") end
+  sprite:close()
+  return {color_count=#palette}
+end
+
+operations.extract_slices = function(input)
+  local sprite = open_sprite(input.source_path)
+  local items = {}
+  for _, extraction in ipairs(input.extractions) do
+    local frame = extraction.frame + 1
+    if frame < 1 or frame > #sprite.frames then fail("INVALID_SELECTOR", "slice frame is outside the sprite") end
+    local slice = find_slice(sprite, extraction.name)
+    if slice == nil then fail("INVALID_SELECTOR", "slice was not found: " .. extraction.name) end
+    app.frame = sprite.frames[frame]
+    local bounds = slice.bounds
+    if bounds.width < 1 or bounds.height < 1 or bounds.x < 0 or bounds.y < 0 or
+       bounds.x + bounds.width > sprite.width or bounds.y + bounds.height > sprite.height then
+      fail("INVALID_SELECTOR", "slice bounds are empty or outside the sprite")
+    end
+    local rendered = render_frame_image(sprite, frame)
+    local image = Image(rendered, bounds)
+    if sprite.colorMode == ColorMode.INDEXED then
+      image:saveAs {filename=extraction.output_path, palette=sprite.palettes[1]}
+    else
+      image:saveAs(extraction.output_path)
+    end
+    local pivot = nil
+    if slice.pivot ~= nil then pivot = {x=slice.pivot.x, y=slice.pivot.y} end
+    table.insert(items, {name=extraction.name, frame=extraction.frame,
+      bounds=rectangle_info(bounds), pivot=pivot})
+  end
+  sprite:close()
+  return {items=items}
+end
+
+operations.generate_collision_masks = function(input)
+  local sprite = open_sprite(input.source_path)
+  local selected = input.frames or {}
+  if #selected == 0 then for index = 0, #sprite.frames - 1 do table.insert(selected, index) end end
+  local layer = nil
+  if input.layer ~= nil then
+    layer = find_layer(sprite, input.layer)
+    if layer.isGroup or layer.isTilemap then fail("INVALID_SELECTOR", "collision layer must be an image layer") end
+  end
+  local results, visits = {}, 0
+  for _, zero_frame in ipairs(selected) do
+    local frame = zero_frame + 1
+    if frame < 1 or frame > #sprite.frames then fail("INVALID_SELECTOR", "collision frame is outside the sprite") end
+    local image
+    if layer == nil then image = render_frame_image(sprite, frame)
+    else
+      image = Image(sprite.spec); image:clear(); local cel = layer:cel(frame)
+      if cel ~= nil then image:drawImage(cel.image, cel.position) end
+    end
+    local solid = {}
+    for y = 0, sprite.height - 1 do for x = 0, sprite.width - 1 do
+      visits = visits + 1
+      if visits > input.max_pixel_visits then fail("LIMIT_EXCEEDED", "collision scan exceeds pixel visit limit") end
+      local _, _, _, alpha = pixel_rgba(sprite, layer, image:getPixel(x, y))
+      if alpha >= input.alpha_threshold then solid[y * sprite.width + x] = true end
+    end end
+    local rectangles = {}
+    if input.mode == "bounds" then
+      local left, top, right, bottom = nil, nil, nil, nil
+      for key in pairs(solid) do local x, y = key % sprite.width, math.floor(key / sprite.width)
+        left=left==nil and x or math.min(left,x);top=top==nil and y or math.min(top,y)
+        right=right==nil and x or math.max(right,x);bottom=bottom==nil and y or math.max(bottom,y) end
+      if left ~= nil then table.insert(rectangles,{x=left,y=top,width=right-left+1,height=bottom-top+1}) end
+    else
+      local visited = {}
+      for key in pairs(solid) do if not visited[key] then
+        local queue, head = {key}, 1; visited[key] = true
+        local left, top, right, bottom = nil, nil, nil, nil
+        while head <= #queue do local current=queue[head];head=head+1
+          local x,y=current%sprite.width,math.floor(current/sprite.width)
+          left=left==nil and x or math.min(left,x);top=top==nil and y or math.min(top,y)
+          right=right==nil and x or math.max(right,x);bottom=bottom==nil and y or math.max(bottom,y)
+          local neighbors={current-1,current+1,current-sprite.width,current+sprite.width}
+          for index,neighbor in ipairs(neighbors) do
+            local valid=(index~=1 or x>0) and (index~=2 or x<sprite.width-1) and
+              (index~=3 or y>0) and (index~=4 or y<sprite.height-1)
+            if valid and solid[neighbor] and not visited[neighbor] then visited[neighbor]=true;table.insert(queue,neighbor) end
+          end
+        end
+        table.insert(rectangles,{x=left,y=top,width=right-left+1,height=bottom-top+1})
+        if #rectangles > input.max_components then fail("LIMIT_EXCEEDED", "collision component count exceeds limit") end
+      end end
+    end
+    table.insert(results, {frame=zero_frame, rectangles=rectangles})
+  end
+  sprite:close()
+  return {frames=results}
+end
+
 operations.validate_animation = function(input)
   local sprite = open_sprite(input.source_path)
   local result = validate_animation(sprite, input)
