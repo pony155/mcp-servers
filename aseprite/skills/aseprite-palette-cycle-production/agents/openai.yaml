@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Palette Cycle"
+  short_description: "Produce indexed palette-cycle animation assets"
+  default_prompt: "Use $aseprite-palette-cycle-production to build and verify this palette cycle."

@@ -375,6 +375,22 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
   mask derivation cover common engine-preparation operations without exposing arbitrary CLI flags.
 - Bounded batch export reports per-job outcomes, while asset-set validation applies one profile and
   optional cross-asset dimension and color-mode invariants.
+- Layer merge/flatten, explicit frame import/export, grid and blend-mode editing, and structured
+  animation events extend editable production without exposing unrestricted commands.
+- Tilemap and nine-slice previews return bounded inline PNG evidence without modifying source
+  documents or publishing intermediate files.
+- Cel metadata editing, bounded inbetween generation, indexed palette cycling, and color-derived
+  selection provide targeted animation cleanup without accepting arbitrary scripts.
+- Onion-skin previews expose neighboring motion as a bounded inline PNG, while pixel-art and loop
+  validators report deterministic QA evidence without modifying the source.
+- Sheet-to-tileset extraction uses explicit grid geometry, bounded tile counts, and optional exact
+  duplicate removal.
+- Tile metadata inspection/editing exposes scalar engine properties without allowing arbitrary
+  property graphs, and color-space editing authorizes ICC files through the normal path policy.
+- Deterministic retiming and direction baking support runtimes with fixed playback requirements;
+  motion reports provide read-only evidence for spacing and cadence review.
+- Collision contour generation emits bounded, simplified outer polygons, while bitmap-font export
+  atomically publishes a PNG atlas and JSON metrics from explicit glyph rectangles.
 
 All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
 normalized mutation results, and optimistic source-hash guards where a source document is edited.
@@ -383,6 +399,10 @@ Versioned Codex skills live under `aseprite/skills`. The general `aseprite-sprit
 is complemented by focused animation-review, concept-to-sprite, game-export, tileset-production,
 and palette-design skills. Additional QA, autotile, UI, fighting-game, color-variant, and batch
 pipeline skills orchestrate the narrow MCP tools without adding new file authority.
+Palette-cycle, restoration, animation-cleanup, RPG-icon, portrait-expression, and looping-background
+skills cover the new focused production workflows while retaining the same file-safety boundary.
+Tile-metadata, color-managed export, modular-character, collision-shape, cutscene, and retro-hardware
+skills add engine-specialized workflows without expanding the MCP server's authority.
 
 ## 9. Resources
 

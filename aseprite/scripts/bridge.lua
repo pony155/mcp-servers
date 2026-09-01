@@ -158,19 +158,29 @@ local function inspect_sprite(sprite, include_palette_colors, source_path)
     table.insert(palettes, { frame = palette_frame, size = #palette, colors = colors })
   end
 
+  local animation_events = {}
+  local encoded_events = sprite.properties["mcp.animation_events"]
+  if type(encoded_events) == "string" and encoded_events ~= "" then
+    local decoded, value = pcall(json.decode, encoded_events)
+    if decoded and type(value) == "table" then animation_events = value end
+  end
+
   return {
     source_path = source_path,
     width = sprite.width,
     height = sprite.height,
     color_mode = color_mode_name(sprite.colorMode),
+    color_space = sprite.colorSpace and sprite.colorSpace.name or "",
     transparent_color = sprite.transparentColor,
     pixel_ratio = { width = sprite.pixelRatio.width, height = sprite.pixelRatio.height },
+    grid = rectangle_info(sprite.gridBounds),
     frame_count = #sprite.frames,
     frames = frames,
     layers = layers,
     tags = tags,
     slices = slices,
-    palettes = palettes
+    palettes = palettes,
+    animation_events = animation_events
   }
 end
 
@@ -2143,6 +2153,1084 @@ operations.generate_collision_masks = function(input)
   end
   sprite:close()
   return {frames=results}
+end
+
+operations.merge_layers = function(input)
+  local sprite = open_sprite(input.source_path)
+  app.sprite = sprite
+  app.transaction("MCP merge layers", function()
+    if input.mode == "flatten" then
+      app.command.FlattenLayers {visibleOnly=input.visible_only}
+    else
+      local layer = find_layer(sprite, input.layer)
+      if layer.stackIndex <= 1 then fail("INVALID_SELECTOR", "layer has nothing below to merge") end
+      app.layer = layer
+      local merged = app.command.MergeDownLayer()
+      if merged == false then fail("ASEPRITE_FAILED", "Aseprite could not merge the layer down") end
+    end
+    if input.output_layer_name ~= nil then app.layer.name = input.output_layer_name end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+operations.export_frames = function(input)
+  local sprite = open_sprite(input.source_path)
+  local items = {}
+  for _, extraction in ipairs(input.exports) do
+    local frame = extraction.frame + 1
+    if frame < 1 or frame > #sprite.frames then fail("INVALID_SELECTOR", "export frame is outside the sprite") end
+    local image = render_frame_image(sprite, frame)
+    if sprite.colorMode == ColorMode.INDEXED then
+      image:saveAs {filename=extraction.output_path, palette=sprite.palettes[1]}
+    else image:saveAs(extraction.output_path) end
+    table.insert(items, {frame=extraction.frame})
+  end
+  sprite:close()
+  return {items=items}
+end
+
+operations.import_frames = function(input)
+  local sprite = open_sprite(input.source_path)
+  local layer = find_layer(sprite, input.layer)
+  if layer.isGroup or layer.isTilemap or layer.isBackground then
+    fail("INVALID_SELECTOR", "frame import requires a non-background image layer")
+  end
+  if #sprite.frames + #input.frame_paths > 256 then fail("LIMIT_EXCEEDED", "frame count exceeds 256") end
+  if input.insert_at ~= nil and input.insert_at > #sprite.frames then
+    fail("INVALID_SELECTOR", "frame insertion index is outside the sprite")
+  end
+  app.transaction("MCP import frames", function()
+    for offset, path in ipairs(input.frame_paths) do
+      local imported = Image {fromFile=path}
+      if imported == nil then fail("INVALID_IMAGE", "Aseprite could not load an imported frame") end
+      if imported.width ~= sprite.width or imported.height ~= sprite.height then
+        fail("INVALID_INPUT", "imported frame dimensions must match the sprite canvas")
+      end
+      local frame
+      if input.insert_at == nil then frame = sprite:newEmptyFrame()
+      else frame = sprite:newEmptyFrame(input.insert_at + offset) end
+      frame.duration = input.duration_ms / 1000
+      local image = Image(sprite.spec); image:clear(); image:drawImage(imported, Point(0, 0))
+      sprite:newCel(layer, frame, image, Point(0, 0))
+    end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+local function transpose_tile(sprite, source)
+  local spec = ImageSpec {width=source.height, height=source.width,
+    colorMode=sprite.colorMode, transparentColor=sprite.transparentColor}
+  local target = Image(spec); target:clear()
+  for y=0,source.height-1 do for x=0,source.width-1 do
+    target:drawPixel(y,x,source:getPixel(x,y))
+  end end
+  return target
+end
+
+operations.render_tilemap_preview = function(input)
+  local sprite = open_sprite(input.source_path)
+  local tileset = find_tileset(sprite, input.tileset)
+  local tile_size = tileset.grid.tileSize
+  local width, height = input.width_cells * tile_size.width, input.height_cells * tile_size.height
+  if width * height > input.max_pixels then fail("LIMIT_EXCEEDED", "tilemap preview exceeds pixel limit") end
+  local spec = ImageSpec {width=width,height=height,colorMode=sprite.colorMode,
+    transparentColor=sprite.transparentColor}
+  local preview = Image(spec); preview:clear()
+  for _, cell in ipairs(input.cells) do
+    if cell.x >= input.width_cells or cell.y >= input.height_cells or cell.tile_index >= #tileset then
+      fail("INVALID_SELECTOR", "tilemap preview cell or tile index is outside bounds")
+    end
+    if cell.tile_index > 0 then
+      local tile = Image(tileset:tile(cell.tile_index).image)
+      if cell.flip_diagonal then
+        if tile.width ~= tile.height then
+          fail("INVALID_INPUT", "diagonal flip requires square tiles")
+        end
+        tile = transpose_tile(sprite, tile)
+      end
+      if cell.flip_x then tile:flip(FlipType.HORIZONTAL) end
+      if cell.flip_y then tile:flip(FlipType.VERTICAL) end
+      preview:drawImage(tile, Point(cell.x*tile_size.width, cell.y*tile_size.height))
+    end
+  end
+  if sprite.colorMode == ColorMode.INDEXED then
+    preview:saveAs {filename=input.output_path,palette=sprite.palettes[1]}
+  else preview:saveAs(input.output_path) end
+  sprite:close()
+  return {width=width,height=height}
+end
+
+operations.edit_grid = function(input)
+  local sprite = open_sprite(input.source_path)
+  app.transaction("MCP edit grid", function()
+    sprite.gridBounds = Rectangle(input.x, input.y, input.width, input.height)
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+local function blend_mode_value(name)
+  local values={normal=BlendMode.NORMAL,multiply=BlendMode.MULTIPLY,screen=BlendMode.SCREEN,
+    overlay=BlendMode.OVERLAY,darken=BlendMode.DARKEN,lighten=BlendMode.LIGHTEN,
+    color_dodge=BlendMode.COLOR_DODGE,color_burn=BlendMode.COLOR_BURN,
+    hard_light=BlendMode.HARD_LIGHT,soft_light=BlendMode.SOFT_LIGHT,
+    difference=BlendMode.DIFFERENCE,exclusion=BlendMode.EXCLUSION,hsl_hue=BlendMode.HSL_HUE,
+    hsl_saturation=BlendMode.HSL_SATURATION,hsl_color=BlendMode.HSL_COLOR,
+    hsl_luminosity=BlendMode.HSL_LUMINOSITY,addition=BlendMode.ADDITION,
+    subtract=BlendMode.SUBTRACT,divide=BlendMode.DIVIDE}
+  return values[name]
+end
+
+operations.edit_blend_modes = function(input)
+  local sprite = open_sprite(input.source_path)
+  app.transaction("MCP edit blend modes", function()
+    for _, operation in ipairs(input.operations) do
+      local layer=find_layer(sprite,operation.layer)
+      if layer.isGroup then fail("INVALID_SELECTOR", "group layers do not expose a blend mode") end
+      local value=blend_mode_value(operation.blend_mode)
+      if value==nil then fail("INVALID_INPUT", "unsupported blend mode") end
+      layer.blendMode=value
+    end
+  end)
+  save_copy(sprite,input.output_path)
+  local result=inspect_sprite(sprite,false,input.output_path);sprite:close();return result
+end
+
+operations.edit_animation_events = function(input)
+  local sprite=open_sprite(input.source_path);local events={}
+  local encoded=sprite.properties["mcp.animation_events"]
+  if type(encoded)=="string" and encoded~="" then local ok,value=pcall(json.decode,encoded)
+    if ok and type(value)=="table" then events=value end end
+  app.transaction("MCP edit animation events",function()
+    for _,operation in ipairs(input.operations) do
+      if operation.frame>=#sprite.frames then fail("INVALID_SELECTOR","event frame is outside the sprite") end
+      if operation.layer~=nil then find_layer(sprite,operation.layer) end
+      local found=nil
+      for index,event in ipairs(events) do if event.name==operation.name and
+        event.frame==operation.frame and event.layer==operation.layer then found=index;break end end
+      if operation.action=="remove" then if found~=nil then table.remove(events,found) end
+      else local event={name=operation.name,frame=operation.frame,layer=operation.layer,data=operation.data}
+        if found~=nil then events[found]=event else table.insert(events,event) end end
+    end
+    table.sort(events,function(a,b)
+      if a.frame~=b.frame then return a.frame<b.frame end
+      if a.name~=b.name then return a.name<b.name end
+      return tostring(a.layer or "")<tostring(b.layer or "")
+    end)
+    sprite.properties["mcp.animation_events"]=json.encode(events)
+  end)
+  save_copy(sprite,input.output_path)
+  local result=inspect_sprite(sprite,false,input.output_path);sprite:close();return result
+end
+
+local function draw_scaled_region(target,source,sx,sy,sw,sh,dx,dy,dw,dh)
+  if sw<=0 or sh<=0 or dw<=0 or dh<=0 then return end
+  local part=Image(source,Rectangle(sx,sy,sw,sh));if part.width~=dw or part.height~=dh then part:resize(dw,dh) end
+  target:drawImage(part,Point(dx,dy))
+end
+
+operations.preview_nine_slice = function(input)
+  local sprite=open_sprite(input.source_path);local slice=find_slice(sprite,input.slice)
+  if slice==nil then fail("INVALID_SELECTOR","slice was not found") end
+  local frame=input.frame+1;if frame<1 or frame>#sprite.frames then fail("INVALID_SELECTOR","frame is outside the sprite") end
+  app.frame=sprite.frames[frame];local bounds=slice.bounds;local center=slice.center
+  if center==nil then fail("INVALID_SELECTOR","slice does not define a nine-slice center") end
+  if bounds.width<1 or bounds.height<1 or bounds.x<0 or bounds.y<0 or
+    bounds.x+bounds.width>sprite.width or bounds.y+bounds.height>sprite.height then
+    fail("INVALID_SELECTOR","slice bounds are empty or outside the sprite")
+  end
+  local left,top=center.x,center.y;local right=bounds.width-center.x-center.width
+  local bottom=bounds.height-center.y-center.height
+  if input.width<left+right or input.height<top+bottom then
+    fail("INVALID_INPUT","preview target is smaller than fixed nine-slice borders") end
+  if input.width*input.height>input.max_pixels then fail("LIMIT_EXCEEDED","nine-slice preview exceeds pixel limit") end
+  local rendered=render_frame_image(sprite,frame);local source=Image(rendered,bounds)
+  local spec=ImageSpec{width=input.width,height=input.height,colorMode=sprite.colorMode,
+    transparentColor=sprite.transparentColor};local target=Image(spec);target:clear()
+  local middle_w=input.width-left-right;local middle_h=input.height-top-bottom
+  local xs={0,left,left+center.width};local sw={left,center.width,right};local dx={0,left,left+middle_w};local dw={left,middle_w,right}
+  local ys={0,top,top+center.height};local sh={top,center.height,bottom};local dy={0,top,top+middle_h};local dh={top,middle_h,bottom}
+  for row=1,3 do for col=1,3 do draw_scaled_region(target,source,xs[col],ys[row],sw[col],sh[row],dx[col],dy[row],dw[col],dh[row]) end end
+  if sprite.colorMode==ColorMode.INDEXED then target:saveAs{filename=input.output_path,palette=sprite.palettes[1]}
+  else target:saveAs(input.output_path) end
+  sprite:close();return {width=input.width,height=input.height}
+end
+
+operations.edit_cels = function(input)
+  local sprite = open_sprite(input.source_path)
+  app.transaction("MCP edit cels", function()
+    for _, operation in ipairs(input.operations) do
+      local layer = find_layer(sprite, operation.layer)
+      if layer.isGroup then fail("INVALID_SELECTOR", "group layers do not contain cels") end
+      local frame = operation.frame + 1
+      if frame < 1 or frame > #sprite.frames then
+        fail("INVALID_SELECTOR", "cel frame is outside the sprite")
+      end
+      local cel = layer:cel(frame)
+      if cel == nil then fail("INVALID_SELECTOR", "cel was not found") end
+      if operation.action == "set_position" then
+        cel.position = Point(operation.x, operation.y)
+      elseif operation.action == "set_opacity" then
+        cel.opacity = operation.opacity
+      elseif operation.action == "set_z_index" then
+        cel.zIndex = operation.z_index
+      elseif operation.action == "unlink" then
+        cel.image = Image(cel.image)
+      elseif operation.action == "remove" then
+        sprite:deleteCel(cel)
+      else
+        fail("INVALID_INPUT", "unsupported cel edit action")
+      end
+    end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+local function tween_canvas(sprite, cel)
+  local image = Image(sprite.spec)
+  image:clear()
+  image:drawImage(cel.image, cel.position, cel.opacity)
+  return image
+end
+
+operations.generate_inbetweens = function(input)
+  local sprite = open_sprite(input.source_path)
+  if #sprite.frames + input.count > input.max_frames then
+    fail("LIMIT_EXCEEDED", "generated frame count exceeds the limit")
+  end
+  local layer = find_layer(sprite, input.layer)
+  if layer.isGroup or layer.isTilemap or layer.isBackground then
+    fail("INVALID_SELECTOR", "inbetweens require a transparent image layer")
+  end
+  local first_number, last_number = input.first_frame + 1, input.last_frame + 1
+  if first_number < 1 or last_number > #sprite.frames or first_number >= last_number then
+    fail("INVALID_SELECTOR", "inbetween endpoints are outside or out of order")
+  end
+  local first_cel, last_cel = layer:cel(first_number), layer:cel(last_number)
+  if first_cel == nil or last_cel == nil then
+    fail("INVALID_SELECTOR", "both endpoint cels must exist on the selected layer")
+  end
+  local first_image, last_image = Image(first_cel.image), Image(last_cel.image)
+  local first_position, last_position = first_cel.position, last_cel.position
+  local first_opacity, last_opacity = first_cel.opacity, last_cel.opacity
+  local tween_duration = (sprite.frames[first_number].duration +
+    sprite.frames[last_number].duration) / 2
+  local first_canvas, last_canvas = nil, nil
+  if input.interpolation == "crossfade" then
+    if sprite.width * sprite.height * input.count > input.max_pixel_visits then
+      fail("LIMIT_EXCEEDED", "inbetween generation exceeds the pixel visit limit")
+    end
+    first_canvas, last_canvas = tween_canvas(sprite, first_cel), tween_canvas(sprite, last_cel)
+  end
+  app.transaction("MCP generate inbetweens", function()
+    for index = 1, input.count do
+      local amount = index / (input.count + 1)
+      local new_frame = sprite:newFrame(input.first_frame + index)
+      local cel = layer:cel(new_frame)
+      if cel == nil then fail("ASEPRITE_FAILED", "duplicated frame did not contain the target cel") end
+      cel.opacity = math.floor(first_opacity + (last_opacity - first_opacity) * amount + 0.5)
+      if input.interpolation == "crossfade" then
+        local image = Image(sprite.spec)
+        image:clear()
+        for y = 0, sprite.height - 1 do
+          for x = 0, sprite.width - 1 do
+            local ar, ag, ab, aa = pixel_rgba(sprite, nil, first_canvas:getPixel(x, y))
+            local br, bg, bb, ba = pixel_rgba(sprite, nil, last_canvas:getPixel(x, y))
+            image:drawPixel(x, y, Color {
+              r = math.floor(ar + (br - ar) * amount + 0.5),
+              g = math.floor(ag + (bg - ag) * amount + 0.5),
+              b = math.floor(ab + (bb - ab) * amount + 0.5),
+              a = math.floor(aa + (ba - aa) * amount + 0.5)
+            })
+          end
+        end
+        cel.image, cel.position, cel.opacity = image, Point(0, 0), 255
+      else
+        local use_last = input.interpolation == "nearest" and amount >= 0.5
+        cel.image = Image(use_last and last_image or first_image)
+        cel.position = Point(
+          math.floor(first_position.x + (last_position.x - first_position.x) * amount + 0.5),
+          math.floor(first_position.y + (last_position.y - first_position.y) * amount + 0.5)
+        )
+      end
+      new_frame.duration = tween_duration
+    end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+operations.palette_cycle = function(input)
+  local sprite = open_sprite(input.source_path)
+  if sprite.colorMode ~= ColorMode.INDEXED then
+    fail("INVALID_SPRITE", "palette cycling requires an indexed-color sprite")
+  end
+  if input.first_frame < 0 or input.last_frame >= #sprite.frames then
+    fail("INVALID_SELECTOR", "palette-cycle frame range is outside the sprite")
+  end
+  local palette = sprite.palettes[1]
+  local positions = {}
+  for position, index in ipairs(input.indices) do
+    if index >= #palette then fail("INVALID_SELECTOR", "palette index is outside the palette") end
+    positions[index] = position
+  end
+  local visits = 0
+  app.transaction("MCP palette cycle", function()
+    for zero_frame = input.first_frame, input.last_frame do
+      local shift = input.step * (zero_frame - input.first_frame)
+      for _, cel in ipairs(sprite.cels) do
+        if cel.frame.frameNumber == zero_frame + 1 and not cel.layer.isTilemap then
+          local image = Image(cel.image)
+          for pixel in image:pixels() do
+            visits = visits + 1
+            if visits > input.max_pixel_visits then
+              fail("LIMIT_EXCEEDED", "palette cycle exceeds the pixel visit limit")
+            end
+            local position = positions[pixel()]
+            if position ~= nil then
+              local target = ((position - 1 + shift) % #input.indices) + 1
+              pixel(input.indices[target])
+            end
+          end
+          cel.image = image
+        end
+      end
+    end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+local function tinted_frame(sprite, frame, red, green, blue)
+  local source = render_frame_image(sprite, frame)
+  local target = Image(sprite.width, sprite.height, ColorMode.RGB)
+  target:clear()
+  for y = 0, sprite.height - 1 do
+    for x = 0, sprite.width - 1 do
+      local _, _, _, alpha = pixel_rgba(sprite, nil, source:getPixel(x, y))
+      if alpha > 0 then target:drawPixel(x, y, Color {r=red, g=green, b=blue, a=alpha}) end
+    end
+  end
+  return target
+end
+
+operations.preview_onion_skin = function(input)
+  local sprite = open_sprite(input.source_path)
+  local current = input.frame + 1
+  if current < 1 or current > #sprite.frames then
+    fail("INVALID_SELECTOR", "onion-skin frame is outside the sprite")
+  end
+  local width, height = sprite.width * input.scale, sprite.height * input.scale
+  if width * height > input.max_pixels then
+    fail("LIMIT_EXCEEDED", "onion-skin preview exceeds the pixel limit")
+  end
+  local preview = Image(sprite.width, sprite.height, ColorMode.RGB)
+  preview:clear()
+  for frame = math.max(1, current - input.before), current - 1 do
+    preview:drawImage(tinted_frame(sprite, frame, 255, 64, 64), Point(0, 0), input.opacity)
+  end
+  for frame = math.min(#sprite.frames, current + input.after), current + 1, -1 do
+    preview:drawImage(tinted_frame(sprite, frame, 64, 128, 255), Point(0, 0), input.opacity)
+  end
+  local active = render_frame_image(sprite, current)
+  preview:drawImage(active)
+  if input.scale > 1 then preview:resize(width, height) end
+  preview:saveAs(input.output_path)
+  sprite:close()
+  return {width=width, height=height}
+end
+
+local function color_distance(red, green, blue, alpha, target, include_alpha)
+  local dr, dg, db = red - target.red, green - target.green, blue - target.blue
+  local distance = dr * dr + dg * dg + db * db
+  if include_alpha then local da = alpha - target.alpha; distance = distance + da * da end
+  return math.sqrt(distance)
+end
+
+operations.select_by_color = function(input)
+  local sprite = open_sprite(input.source_path)
+  local frame = input.frame + 1
+  if frame < 1 or frame > #sprite.frames then fail("INVALID_SELECTOR", "selection frame is outside the sprite") end
+  local image
+  if input.layer == nil then image = render_frame_image(sprite, frame)
+  else
+    local layer = find_layer(sprite, input.layer)
+    if layer.isGroup or layer.isTilemap then fail("INVALID_SELECTOR", "selection requires an image layer") end
+    image = Image(sprite.spec); image:clear(); local cel = layer:cel(frame)
+    if cel ~= nil then image:drawImage(cel.image, cel.position, cel.opacity) end
+  end
+  if sprite.width * sprite.height > input.max_pixel_visits then
+    fail("LIMIT_EXCEEDED", "color selection exceeds the pixel visit limit")
+  end
+  local targets = {}
+  for _, value in ipairs(input.colors) do table.insert(targets, parse_color(value)) end
+  local matches = Selection()
+  for y = 0, sprite.height - 1 do
+    local run_start = nil
+    for x = 0, sprite.width do
+      local matched = false
+      if x < sprite.width then
+        local red, green, blue, alpha = pixel_rgba(sprite, nil, image:getPixel(x, y))
+        for _, target in ipairs(targets) do
+          if color_distance(red, green, blue, alpha, target, input.include_alpha) <= input.tolerance then
+            matched = true; break
+          end
+        end
+      end
+      if matched and run_start == nil then run_start = x end
+      if not matched and run_start ~= nil then
+        matches:add(Rectangle(run_start, y, x - run_start, 1)); run_start = nil
+      end
+    end
+  end
+  app.transaction("MCP select by color", function()
+    if input.selection_mode == "replace" then sprite.selection = matches
+    elseif input.selection_mode == "add" then sprite.selection:add(matches)
+    elseif input.selection_mode == "subtract" then sprite.selection:subtract(matches)
+    elseif input.selection_mode == "intersect" then sprite.selection:intersect(matches)
+    else fail("INVALID_INPUT", "unsupported selection mode") end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+operations.create_tileset_from_sheet = function(input)
+  local sprite = open_sprite(input.source_path)
+  for _, existing in ipairs(sprite.tilesets) do
+    if existing.name == input.name then
+      fail("INVALID_INPUT", "tileset name already exists: " .. input.name)
+    end
+  end
+  local layer = find_layer(sprite, input.layer)
+  local frame = input.frame + 1
+  if layer.isGroup or layer.isTilemap then fail("INVALID_SELECTOR", "sheet must be an image layer") end
+  if frame < 1 or frame > #sprite.frames then fail("INVALID_SELECTOR", "sheet frame is outside the sprite") end
+  local cel = layer:cel(frame)
+  if cel == nil then fail("INVALID_SELECTOR", "sheet cel was not found") end
+  local step_x, step_y = input.tile_width + input.spacing, input.tile_height + input.spacing
+  local available_width, available_height = sprite.width - input.margin * 2,
+    sprite.height - input.margin * 2
+  local available_columns = math.floor((available_width + input.spacing) / step_x)
+  local available_rows = math.floor((available_height + input.spacing) / step_y)
+  local columns = input.columns or available_columns
+  if available_columns < 1 or available_rows < 1 or columns < 1 or columns > available_columns then
+    fail("INVALID_INPUT", "tile grid does not fit the sprite canvas")
+  end
+  local count = input.tile_count or columns * available_rows
+  if count < 1 or count > columns * available_rows or count > input.max_tiles then
+    fail("LIMIT_EXCEEDED", "tile count exceeds the available grid or tool limit")
+  end
+  if count * input.tile_width * input.tile_height > input.max_pixel_visits then
+    fail("LIMIT_EXCEEDED", "tileset extraction exceeds the pixel visit limit")
+  end
+  local sheet = Image(sprite.spec); sheet:clear(); sheet:drawImage(cel.image, cel.position)
+  app.transaction("MCP create tileset from sheet", function()
+    local tileset = sprite:newTileset(Rectangle(0, 0, input.tile_width, input.tile_height))
+    tileset.name = input.name
+    local unique = {}
+    for index = 0, count - 1 do
+      local column, row = index % columns, math.floor(index / columns)
+      local bounds = Rectangle(input.margin + column * step_x,
+        input.margin + row * step_y, input.tile_width, input.tile_height)
+      local tile_image = Image(sheet, bounds)
+      local duplicate = false
+      if input.deduplicate then
+        for _, existing in ipairs(unique) do
+          if tile_image:isEqual(existing) then duplicate = true; break end
+        end
+      end
+      if not duplicate then
+        local tile = sprite:newTile(tileset)
+        tile.image = tile_image
+        table.insert(unique, tile_image)
+      end
+    end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+operations.validate_pixel_art = function(input)
+  local sprite = open_sprite(input.source_path)
+  local frames = input.frames or {}
+  if #frames == 0 then for index = 0, #sprite.frames - 1 do table.insert(frames, index) end end
+  local allowed = {}
+  for _, color in ipairs(input.allowed_palette or {}) do
+    local parsed = parse_color(color)
+    allowed[rgba_hex(parsed.red, parsed.green, parsed.blue, parsed.alpha)] = true
+  end
+  local colors, semi, off_palette, isolated, visits = {}, 0, 0, 0, 0
+  local first_semi, first_off, first_isolated = nil, nil, nil
+  for _, zero_frame in ipairs(frames) do
+    local frame = zero_frame + 1
+    if frame < 1 or frame > #sprite.frames then fail("INVALID_SELECTOR", "validation frame is outside the sprite") end
+    local image = render_frame_image(sprite, frame)
+    local opaque = {}
+    for y = 0, sprite.height - 1 do for x = 0, sprite.width - 1 do
+      visits = visits + 1
+      if visits > input.max_pixel_visits then fail("LIMIT_EXCEEDED", "pixel-art validation exceeds pixel limit") end
+      local red, green, blue, alpha = pixel_rgba(sprite, nil, image:getPixel(x, y))
+      if alpha > 0 then
+        local hex = rgba_hex(red, green, blue, alpha); colors[hex] = true
+        opaque[y * sprite.width + x] = true
+        if alpha < 255 then semi = semi + 1; first_semi = first_semi or {frame=zero_frame,x=x,y=y} end
+        if next(allowed) ~= nil and not allowed[hex] then
+          off_palette = off_palette + 1; first_off = first_off or {frame=zero_frame,x=x,y=y}
+        end
+      end
+    end end
+    if input.detect_isolated_pixels then
+      for key in pairs(opaque) do
+        local x, y = key % sprite.width, math.floor(key / sprite.width)
+        local connected = (x > 0 and opaque[key - 1]) or
+          (x < sprite.width - 1 and opaque[key + 1]) or
+          (y > 0 and opaque[key - sprite.width]) or
+          (y < sprite.height - 1 and opaque[key + sprite.width])
+        if not connected then
+          isolated = isolated + 1
+          first_isolated = first_isolated or {frame=zero_frame,x=x,y=y}
+        end
+      end
+    end
+  end
+  local unique = 0; for _ in pairs(colors) do unique = unique + 1 end
+  local issues = {}
+  if input.max_colors ~= nil and unique > input.max_colors then
+    table.insert(issues, {code="TOO_MANY_COLORS",severity="error",
+      message="Opaque unique color count exceeds max_colors"})
+  end
+  if input.require_binary_alpha and semi > 0 then
+    table.insert(issues, {code="SEMI_TRANSPARENT_PIXELS",severity="error",
+      message="Sprite contains partially transparent pixels",frame=first_semi.frame,
+      x=first_semi.x,y=first_semi.y})
+  end
+  if off_palette > 0 then
+    table.insert(issues, {code="OFF_PALETTE_PIXELS",severity="error",
+      message="Sprite contains colors outside allowed_palette",frame=first_off.frame,
+      x=first_off.x,y=first_off.y})
+  end
+  if isolated > 0 then
+    table.insert(issues, {code="ISOLATED_PIXELS",severity="warning",
+      message="Sprite contains opaque pixels without orthogonal neighbors",
+      frame=first_isolated.frame,x=first_isolated.x,y=first_isolated.y})
+  end
+  local valid = true; for _, issue in ipairs(issues) do if issue.severity == "error" then valid = false end end
+  sprite:close()
+  return {valid=valid,frames=frames,unique_colors=unique,semi_transparent_pixels=semi,
+    off_palette_pixels=off_palette,isolated_pixels=isolated,issues=issues}
+end
+
+operations.validate_loop_transition = function(input)
+  local sprite = open_sprite(input.source_path)
+  local first, last = input.first_frame, input.last_frame
+  if input.tag ~= nil then
+    local tag = find_tag(sprite, input.tag)
+    if tag == nil then fail("INVALID_SELECTOR", "animation tag was not found") end
+    first, last = tag.fromFrame.frameNumber - 1, tag.toFrame.frameNumber - 1
+  elseif last == nil then last = #sprite.frames - 1 end
+  if first < 0 or last < 0 or first >= #sprite.frames or last >= #sprite.frames or first > last then
+    fail("INVALID_SELECTOR", "loop frame range is outside or out of order")
+  end
+  if sprite.width * sprite.height > input.max_pixel_visits then
+    fail("LIMIT_EXCEEDED", "loop validation exceeds the pixel visit limit")
+  end
+  local first_image, last_image = render_frame_image(sprite, first + 1), render_frame_image(sprite, last + 1)
+  local changed, left, top, right, bottom = 0, nil, nil, nil, nil
+  for y = 0, sprite.height - 1 do for x = 0, sprite.width - 1 do
+    local ar, ag, ab, aa = pixel_rgba(sprite, nil, first_image:getPixel(x, y))
+    local br, bg, bb, ba = pixel_rgba(sprite, nil, last_image:getPixel(x, y))
+    if ar ~= br or ag ~= bg or ab ~= bb or aa ~= ba then
+      changed = changed + 1
+      left=left==nil and x or math.min(left,x);top=top==nil and y or math.min(top,y)
+      right=right==nil and x or math.max(right,x);bottom=bottom==nil and y or math.max(bottom,y)
+    end
+  end end
+  local first_duration = math.floor(sprite.frames[first + 1].duration * 1000 + 0.5)
+  local last_duration = math.floor(sprite.frames[last + 1].duration * 1000 + 0.5)
+  local duration_delta = last_duration - first_duration
+  local issues = {}
+  if changed > input.max_changed_pixels then
+    table.insert(issues,{code="LOOP_PIXEL_DISCONTINUITY",severity="error",
+      message="Loop endpoints exceed the allowed changed-pixel count",frames={first,last}})
+  end
+  if input.require_equal_duration and duration_delta ~= 0 then
+    table.insert(issues,{code="LOOP_DURATION_MISMATCH",severity="error",
+      message="Loop endpoint durations differ",frames={first,last}})
+  end
+  local bounds = nil
+  if left ~= nil then bounds={x=left,y=top,width=right-left+1,height=bottom-top+1} end
+  local changed_ratio = changed / (sprite.width * sprite.height)
+  sprite:close()
+  return {valid=#issues==0,tag=input.tag,first_frame=first,last_frame=last,
+    changed_pixel_count=changed,changed_ratio=changed_ratio,
+    changed_bounds=bounds,first_duration_ms=first_duration,last_duration_ms=last_duration,
+    duration_delta_ms=duration_delta,issues=issues}
+end
+
+local function scalar_properties(properties)
+  local result = {}
+  for key, value in pairs(properties) do
+    local kind = type(value)
+    if kind == "string" or kind == "number" or kind == "boolean" then
+      result[tostring(key)] = value
+    end
+  end
+  return result
+end
+
+operations.inspect_tile_metadata = function(input)
+  local sprite = open_sprite(input.source_path)
+  local tileset = find_tileset(sprite, input.tileset)
+  local indices = input.tile_indices or {}
+  if #indices == 0 then
+    if #tileset > input.max_tiles then fail("LIMIT_EXCEEDED", "tileset exceeds inspection limit") end
+    for index = 0, #tileset - 1 do table.insert(indices, index) end
+  end
+  local tiles = {}
+  for _, index in ipairs(indices) do
+    local tile = tileset:tile(index)
+    if tile == nil then fail("INVALID_SELECTOR", "tile was not found: " .. tostring(index)) end
+    table.insert(tiles, {index=index, data=tile.data or "", color=color_info(tile.color).hex,
+      properties=scalar_properties(tile.properties)})
+  end
+  local result = {tileset=input.tileset, base_index=tileset.baseIndex,
+    data=tileset.data or "", properties=scalar_properties(tileset.properties), tiles=tiles}
+  sprite:close()
+  return result
+end
+
+operations.edit_tile_metadata = function(input)
+  local sprite = open_sprite(input.source_path)
+  local tileset = find_tileset(sprite, input.tileset)
+  app.transaction("MCP edit tile metadata", function()
+    for _, operation in ipairs(input.operations) do
+      local target = tileset
+      if operation.target == "tile" then
+        target = tileset:tile(operation.tile_index)
+        if target == nil then fail("INVALID_SELECTOR", "tile was not found") end
+      end
+      if operation.action == "set" then target.properties[operation.key] = operation.value
+      elseif operation.action == "remove" then target.properties[operation.key] = nil
+      else fail("INVALID_INPUT", "unsupported tile metadata action") end
+    end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+operations.edit_color_space = function(input)
+  local sprite = open_sprite(input.source_path)
+  local color_space
+  if input.mode == "assign_none" then color_space = ColorSpace()
+  elseif input.mode == "assign_srgb" or input.mode == "convert_srgb" then
+    color_space = ColorSpace {sRGB=true}
+  elseif input.mode == "assign_icc" or input.mode == "convert_icc" then
+    color_space = ColorSpace {fromFile=input.profile_path}
+  else fail("INVALID_INPUT", "unsupported color-space mode") end
+  if color_space == nil then fail("INVALID_INPUT", "color profile could not be loaded") end
+  app.transaction("MCP edit color space", function()
+    if input.mode == "convert_srgb" or input.mode == "convert_icc" then
+      sprite:convertColorSpace(color_space)
+    else sprite:assignColorSpace(color_space) end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+local function retime_weight(distribution, index, count, current)
+  if distribution == "preserve" then return current end
+  if distribution == "uniform" then return 1 end
+  if distribution == "ease_in" then return index end
+  if distribution == "ease_out" then return count - index + 1 end
+  if distribution == "ease_in_out" then return math.min(index, count - index + 1) end
+  fail("INVALID_INPUT", "unsupported timing distribution")
+end
+
+operations.retime_animation = function(input)
+  local sprite = open_sprite(input.source_path)
+  local first, last = 1, #sprite.frames
+  if input.tag ~= nil then
+    local tag = find_tag(sprite, input.tag)
+    if tag == nil then fail("INVALID_SELECTOR", "animation tag was not found") end
+    first, last = tag.fromFrame.frameNumber, tag.toFrame.frameNumber
+  end
+  local count, current_total = last - first + 1, 0
+  for frame = first, last do
+    current_total = current_total + math.floor(sprite.frames[frame].duration * 1000 + 0.5)
+  end
+  local target_total
+  if input.mode == "fps" then target_total = math.floor(count * 1000 / input.target_fps + 0.5)
+  elseif input.mode == "total_duration" then target_total = input.target_total_duration_ms
+  elseif input.mode == "scale" then target_total = math.floor(current_total * input.scale + 0.5)
+  else fail("INVALID_INPUT", "unsupported retiming mode") end
+  if target_total < count then fail("INVALID_INPUT", "target duration is shorter than one millisecond per frame") end
+  local weights, weight_total = {}, 0
+  for index = 1, count do
+    local current = math.floor(sprite.frames[first + index - 1].duration * 1000 + 0.5)
+    weights[index] = retime_weight(input.distribution, index, count, current)
+    weight_total = weight_total + weights[index]
+  end
+  local durations, assigned = {}, 0
+  for index = 1, count do
+    durations[index] = math.max(1, math.floor(target_total * weights[index] / weight_total))
+    assigned = assigned + durations[index]
+  end
+  local cursor = 1
+  while assigned < target_total do
+    durations[cursor] = durations[cursor] + 1; assigned = assigned + 1
+    cursor = cursor % count + 1
+  end
+  cursor = count
+  while assigned > target_total do
+    if durations[cursor] > 1 then durations[cursor] = durations[cursor] - 1; assigned = assigned - 1 end
+    cursor = (cursor - 2) % count + 1
+  end
+  app.transaction("MCP retime animation", function()
+    for index = 1, count do sprite.frames[first + index - 1].duration = durations[index] / 1000 end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+local function directed_tag_frames(tag)
+  local first, last = tag.fromFrame.frameNumber, tag.toFrame.frameNumber
+  local result = {}
+  if tag.aniDir == AniDir.REVERSE or tag.aniDir == AniDir.PING_PONG_REVERSE then
+    for frame = last, first, -1 do table.insert(result, frame) end
+    if tag.aniDir == AniDir.PING_PONG_REVERSE then
+      for frame = first + 1, last - 1 do table.insert(result, frame) end
+    end
+  else
+    for frame = first, last do table.insert(result, frame) end
+    if tag.aniDir == AniDir.PING_PONG then
+      for frame = last - 1, first + 1, -1 do table.insert(result, frame) end
+    end
+  end
+  return result
+end
+
+operations.bake_tag_direction = function(input)
+  local sprite = open_sprite(input.source_path)
+  local tag = find_tag(sprite, input.tag)
+  if tag == nil then fail("INVALID_SELECTOR", "animation tag was not found") end
+  if find_tag(sprite, input.output_tag) ~= nil then
+    fail("INVALID_INPUT", "output tag already exists: " .. input.output_tag)
+  end
+  local sequence = directed_tag_frames(tag)
+  local added = #sequence * input.repetitions
+  if #sprite.frames + added > input.max_frames then fail("LIMIT_EXCEEDED", "baked sequence exceeds frame limit") end
+  local source_frames = {}
+  for _, frame_number in ipairs(sequence) do table.insert(source_frames, sprite.frames[frame_number]) end
+  local events = {}
+  local encoded_events = sprite.properties["mcp.animation_events"]
+  if type(encoded_events) == "string" and encoded_events ~= "" then
+    local decoded, value = pcall(json.decode, encoded_events)
+    if decoded and type(value) == "table" then events = value end
+  end
+  local output_first = #sprite.frames + 1
+  app.transaction("MCP bake tag direction", function()
+    for _ = 1, input.repetitions do
+      for _, source_frame in ipairs(source_frames) do
+        local target_frame = sprite:newEmptyFrame()
+        target_frame.duration = source_frame.duration
+        local source_cels = {}
+        for _, cel in ipairs(sprite.cels) do
+          if cel.frame == source_frame then table.insert(source_cels, cel) end
+        end
+        for _, source_cel in ipairs(source_cels) do
+          local image = input.link_images and source_cel.image or Image(source_cel.image)
+          local target_cel = source_cel.layer:cel(target_frame)
+          if target_cel ~= nil then
+            target_cel.image = image; target_cel.position = source_cel.position
+          else
+            target_cel = sprite:newCel(
+              source_cel.layer, target_frame, image, source_cel.position
+            )
+          end
+          target_cel.opacity = source_cel.opacity
+          target_cel.zIndex = source_cel.zIndex
+          target_cel.data = source_cel.data
+          target_cel.color = source_cel.color
+          for key, value in pairs(source_cel.properties) do
+            local kind = type(value)
+            if kind == "string" or kind == "number" or kind == "boolean" then
+              target_cel.properties[key] = value
+            end
+          end
+        end
+        local source_zero, target_zero = source_frame.frameNumber - 1,
+          target_frame.frameNumber - 1
+        local copied_events = {}
+        for _, event in ipairs(events) do
+          if event.frame == source_zero then
+            table.insert(copied_events, {name=event.name, frame=target_zero,
+              layer=event.layer, data=event.data})
+          end
+        end
+        for _, event in ipairs(copied_events) do table.insert(events, event) end
+      end
+    end
+    local baked = sprite:newTag(output_first, #sprite.frames)
+    baked.name = input.output_tag
+    baked.aniDir = AniDir.FORWARD
+    if #events > 0 then sprite.properties["mcp.animation_events"] = json.encode(events) end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+local function motion_image(sprite, layer, frame)
+  if layer == nil then return render_frame_image(sprite, frame) end
+  local image = Image(sprite.spec); image:clear(); local cel = layer:cel(frame)
+  if cel ~= nil then image:drawImage(cel.image, cel.position, cel.opacity) end
+  return image
+end
+
+operations.generate_motion_report = function(input)
+  local sprite = open_sprite(input.source_path)
+  local layer = nil
+  if input.layer ~= nil then
+    layer = find_layer(sprite, input.layer)
+    if layer.isGroup or layer.isTilemap then fail("INVALID_SELECTOR", "motion report requires an image layer") end
+  end
+  local first, last = 1, #sprite.frames
+  if input.tag ~= nil then
+    local tag = find_tag(sprite, input.tag)
+    if tag == nil then fail("INVALID_SELECTOR", "animation tag was not found") end
+    first, last = tag.fromFrame.frameNumber, tag.toFrame.frameNumber
+  end
+  if sprite.width * sprite.height * (last - first + 1) > input.max_pixel_visits then
+    fail("LIMIT_EXCEEDED", "motion report exceeds pixel visit limit")
+  end
+  local metrics, total_distance, maximum_speed = {}, 0, 0
+  local previous_centroid, previous_velocity, previous_duration = nil, nil, nil
+  for frame = first, last do
+    local image = motion_image(sprite, layer, frame)
+    local left, top, right, bottom, count, sum_x, sum_y = nil, nil, nil, nil, 0, 0, 0
+    for y = 0, sprite.height - 1 do for x = 0, sprite.width - 1 do
+      local _, _, _, alpha = pixel_rgba(sprite, nil, image:getPixel(x, y))
+      if alpha >= input.alpha_threshold then
+        count, sum_x, sum_y = count + 1, sum_x + x, sum_y + y
+        left=left==nil and x or math.min(left,x);top=top==nil and y or math.min(top,y)
+        right=right==nil and x or math.max(right,x);bottom=bottom==nil and y or math.max(bottom,y)
+      end
+    end end
+    local centroid, velocity_x, velocity_y, acceleration_x, acceleration_y = nil, nil, nil, nil, nil
+    if count > 0 then centroid = {x=sum_x/count, y=sum_y/count} end
+    if centroid ~= nil and previous_centroid ~= nil then
+      local seconds = previous_duration / 1000
+      velocity_x = (centroid.x - previous_centroid.x) / seconds
+      velocity_y = (centroid.y - previous_centroid.y) / seconds
+      local speed = math.sqrt(velocity_x*velocity_x + velocity_y*velocity_y)
+      total_distance = total_distance + math.sqrt(
+        (centroid.x-previous_centroid.x)^2 + (centroid.y-previous_centroid.y)^2)
+      maximum_speed = math.max(maximum_speed, speed)
+      if previous_velocity ~= nil then
+        acceleration_x = (velocity_x - previous_velocity.x) / seconds
+        acceleration_y = (velocity_y - previous_velocity.y) / seconds
+      end
+      previous_velocity = {x=velocity_x,y=velocity_y}
+    else previous_velocity = nil end
+    local duration = math.floor(sprite.frames[frame].duration * 1000 + 0.5)
+    table.insert(metrics,{frame=frame-1,duration_ms=duration,
+      bounds=left and {x=left,y=top,width=right-left+1,height=bottom-top+1} or nil,
+      opaque_pixels=count,centroid=centroid,velocity_x=velocity_x,velocity_y=velocity_y,
+      acceleration_x=acceleration_x,acceleration_y=acceleration_y})
+    previous_centroid, previous_duration = centroid, duration
+  end
+  sprite:close()
+  return {tag=input.tag,layer=input.layer,frames=metrics,total_distance=total_distance,
+    maximum_speed=maximum_speed}
+end
+
+local function collision_source_image(sprite, layer, frame)
+  if layer == nil then return render_frame_image(sprite, frame) end
+  local image = Image(sprite.spec); image:clear(); local cel = layer:cel(frame)
+  if cel ~= nil then image:drawImage(cel.image, cel.position, cel.opacity) end
+  return image
+end
+
+local function polygon_area(points)
+  local area = 0
+  for index = 1, #points do
+    local next_index = index % #points + 1
+    area = area + points[index].x * points[next_index].y -
+      points[next_index].x * points[index].y
+  end
+  return area / 2
+end
+
+local function simplify_polygon(points, tolerance)
+  local changed = true
+  while changed and #points > 3 do
+    changed = false
+    for index = #points, 1, -1 do
+      local previous = points[(index - 2) % #points + 1]
+      local current = points[index]
+      local following = points[index % #points + 1]
+      local dx, dy = following.x - previous.x, following.y - previous.y
+      local length = math.sqrt(dx*dx + dy*dy)
+      local distance = length == 0 and 0 or
+        math.abs(dy*current.x - dx*current.y + following.x*previous.y -
+          following.y*previous.x) / length
+      if #points > 3 and distance <= tolerance then table.remove(points,index);changed=true end
+    end
+  end
+  return points
+end
+
+local function normalize_polygon(points)
+  if polygon_area(points) < 0 then
+    local reversed = {}
+    for index = #points, 1, -1 do table.insert(reversed, points[index]) end
+    points = reversed
+  end
+  local start = 1
+  for index = 2, #points do
+    if points[index].y < points[start].y or
+      (points[index].y == points[start].y and points[index].x < points[start].x) then
+      start = index
+    end
+  end
+  local normalized = {}
+  for offset = 0, #points - 1 do
+    table.insert(normalized, points[(start + offset - 1) % #points + 1])
+  end
+  return normalized
+end
+
+local function trace_component(component, width, tolerance)
+  local outgoing = {}
+  local function add_edge(ax,ay,bx,by)
+    local key=ax..","..ay;outgoing[key]=outgoing[key] or {}
+    table.insert(outgoing[key],{x=bx,y=by})
+  end
+  for key in pairs(component) do
+    local x,y=key%width,math.floor(key/width)
+    if not component[key-width] then add_edge(x,y,x+1,y) end
+    if not component[key+1] or x==width-1 then add_edge(x+1,y,x+1,y+1) end
+    if not component[key+width] then add_edge(x+1,y+1,x,y+1) end
+    if not component[key-1] or x==0 then add_edge(x,y+1,x,y) end
+  end
+  local loops = {}
+  while true do
+    local start_key,start_edges=nil,nil
+    for key,edges in pairs(outgoing) do if #edges>0 then start_key,start_edges=key,edges;break end end
+    if start_key==nil then break end
+    local comma=string.find(start_key,",");local sx=tonumber(string.sub(start_key,1,comma-1))
+    local sy=tonumber(string.sub(start_key,comma+1));local x,y=sx,sy;local points={}
+    repeat
+      table.insert(points,{x=x,y=y});local key=x..","..y;local edges=outgoing[key]
+      if edges==nil or #edges==0 then fail("ASEPRITE_FAILED","collision contour is open") end
+      local target=table.remove(edges);x,y=target.x,target.y
+    until x==sx and y==sy
+    table.insert(loops,normalize_polygon(simplify_polygon(points,tolerance)))
+  end
+  local largest,largest_area=nil,0
+  for _,points in ipairs(loops) do local area=math.abs(polygon_area(points))
+    if area>largest_area then largest,largest_area=points,area end end
+  return largest,largest_area
+end
+
+operations.generate_collision_polygons = function(input)
+  local sprite=open_sprite(input.source_path);local layer=nil
+  if input.layer~=nil then layer=find_layer(sprite,input.layer)
+    if layer.isGroup or layer.isTilemap then fail("INVALID_SELECTOR","collision polygons require an image layer") end end
+  local frames=input.frames or {};if #frames==0 then for index=0,#sprite.frames-1 do table.insert(frames,index) end end
+  local results,visits,polygon_count={},0,0
+  for _,zero_frame in ipairs(frames) do
+    local frame=zero_frame+1;if frame<1 or frame>#sprite.frames then fail("INVALID_SELECTOR","collision frame is outside sprite") end
+    local image=collision_source_image(sprite,layer,frame);local solid={}
+    for y=0,sprite.height-1 do for x=0,sprite.width-1 do visits=visits+1
+      if visits>input.max_pixel_visits then fail("LIMIT_EXCEEDED","collision polygon scan exceeds pixel limit") end
+      local _,_,_,alpha=pixel_rgba(sprite,nil,image:getPixel(x,y));if alpha>=input.alpha_threshold then solid[y*sprite.width+x]=true end
+    end end
+    local visited,polygons={},{}
+    for key in pairs(solid) do if not visited[key] then
+      local queue,head,component={key},1,{};visited[key]=true
+      while head<=#queue do local current=queue[head];head=head+1;component[current]=true
+        local x,y=current%sprite.width,math.floor(current/sprite.width)
+        local neighbors={current-1,current+1,current-sprite.width,current+sprite.width}
+        for index,neighbor in ipairs(neighbors) do local valid=(index~=1 or x>0) and
+          (index~=2 or x<sprite.width-1) and (index~=3 or y>0) and (index~=4 or y<sprite.height-1)
+          if valid and solid[neighbor] and not visited[neighbor] then visited[neighbor]=true;table.insert(queue,neighbor) end end
+      end
+      local points,area=trace_component(component,sprite.width,input.simplify_tolerance)
+      if points~=nil then polygon_count=polygon_count+1
+        if polygon_count>input.max_polygons then fail("LIMIT_EXCEEDED","collision polygon count exceeds limit") end
+        if #points>input.max_points_per_polygon then fail("LIMIT_EXCEEDED","collision polygon point count exceeds limit") end
+        table.insert(polygons,{points=points,area=area}) end
+    end end
+    table.sort(polygons,function(a,b)
+      if a.points[1].y~=b.points[1].y then return a.points[1].y<b.points[1].y end
+      if a.points[1].x~=b.points[1].x then return a.points[1].x<b.points[1].x end
+      return a.area>b.area
+    end)
+    table.insert(results,{frame=zero_frame,polygons=polygons})
+  end
+  sprite:close();return {frames=results}
+end
+
+operations.export_bitmap_font = function(input)
+  local sprite=open_sprite(input.source_path);local max_width,max_height=0,0
+  for _,glyph in ipairs(input.glyphs) do
+    if glyph.frame>=#sprite.frames or glyph.bounds.x<0 or glyph.bounds.y<0 or
+      glyph.bounds.x+glyph.bounds.width>sprite.width or
+      glyph.bounds.y+glyph.bounds.height>sprite.height then
+      fail("INVALID_SELECTOR","glyph frame or bounds are outside the sprite")
+    end
+    max_width=math.max(max_width,glyph.bounds.width);max_height=math.max(max_height,glyph.bounds.height)
+  end
+  local columns=math.min(input.columns,#input.glyphs);local rows=math.ceil(#input.glyphs/columns)
+  local cell_width,cell_height=max_width+input.padding*2,max_height+input.padding*2
+  local width,height=columns*cell_width,rows*cell_height
+  if width*height>input.max_pixels then fail("LIMIT_EXCEEDED","bitmap-font atlas exceeds pixel limit") end
+  local atlas=Image(width,height,sprite.colorMode);atlas:clear();local entries={}
+  for index,glyph in ipairs(input.glyphs) do
+    local frame_image=render_frame_image(sprite,glyph.frame+1)
+    local image=Image(frame_image,Rectangle(glyph.bounds.x,glyph.bounds.y,
+      glyph.bounds.width,glyph.bounds.height))
+    local x=((index-1)%columns)*cell_width+input.padding
+    local y=math.floor((index-1)/columns)*cell_height+input.padding
+    atlas:drawImage(image,Point(x,y))
+    table.insert(entries,{codepoint=glyph.codepoint,frame=glyph.frame,x=x,y=y,
+      width=glyph.bounds.width,height=glyph.bounds.height,
+      advance=glyph.advance or glyph.bounds.width,bearing_x=glyph.bearing_x,
+      bearing_y=glyph.bearing_y})
+  end
+  if sprite.colorMode==ColorMode.INDEXED then
+    atlas:saveAs{filename=input.image_output_path,palette=sprite.palettes[1]}
+  else atlas:saveAs(input.image_output_path) end
+  write_all(input.data_output_path,json.encode({font=input.font_name,line_height=input.line_height,
+    atlas={width=width,height=height,columns=columns,padding=input.padding},glyphs=entries}))
+  sprite:close();return {glyph_count=#input.glyphs,line_height=input.line_height}
 end
 
 operations.validate_animation = function(input)

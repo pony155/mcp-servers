@@ -78,6 +78,11 @@ class PointInfo(StrictModel):
     y: int
 
 
+class FloatPointInfo(StrictModel):
+    x: float
+    y: float
+
+
 class SliceKeyInfo(StrictModel):
     frame: int
     bounds: RectangleInfo
@@ -104,20 +109,30 @@ class PaletteInfo(StrictModel):
     colors: list[ColorInfo] | None = None
 
 
+class AnimationEventInfo(StrictModel):
+    name: str
+    frame: int
+    layer: str | None = None
+    data: str | None = None
+
+
 class SpriteInfo(StrictModel):
     source_path: str
     sha256: str
     width: int
     height: int
     color_mode: str
+    color_space: str
     transparent_color: int
     pixel_ratio: PixelRatio
+    grid: RectangleInfo
     frame_count: int
     frames: list[FrameInfo]
     layers: list[LayerInfo]
     tags: list[TagInfo]
     slices: list[SliceInfo]
     palettes: list[PaletteInfo]
+    animation_events: list[AnimationEventInfo] = Field(default_factory=list)
 
 
 class FileResult(StrictModel):
@@ -568,6 +583,166 @@ class AssetSetValidationResult(StrictModel):
     profile_name: str
     items: list[AssetValidationItem]
     issues: list[ExportProfileIssue]
+
+
+class FrameExportInput(StrictModel):
+    frame: Annotated[int, Field(ge=0)]
+    output_path: str
+
+
+class FrameExportItem(StrictModel):
+    frame: int
+    file: FileResult
+
+
+class FrameExportResult(StrictModel):
+    source_path: str
+    sha256: str
+    items: list[FrameExportItem]
+
+
+class BlendModeEditOperation(StrictModel):
+    layer: Annotated[str, Field(min_length=1, max_length=256)]
+    blend_mode: Literal[
+        "normal", "multiply", "screen", "overlay", "darken", "lighten",
+        "color_dodge", "color_burn", "hard_light", "soft_light", "difference",
+        "exclusion", "hsl_hue", "hsl_saturation", "hsl_color", "hsl_luminosity",
+        "addition", "subtract", "divide"
+    ]
+
+
+class AnimationEventEditOperation(StrictModel):
+    action: Literal["set", "remove"]
+    name: Annotated[str, Field(min_length=1, max_length=128)]
+    frame: Annotated[int, Field(ge=0)]
+    layer: Annotated[str | None, Field(min_length=1, max_length=256)] = None
+    data: Annotated[str | None, Field(max_length=4096)] = None
+
+
+class CelEditOperation(StrictModel):
+    action: Literal["set_position", "set_opacity", "set_z_index", "unlink", "remove"]
+    layer: Annotated[str, Field(min_length=1, max_length=256)]
+    frame: Annotated[int, Field(ge=0)]
+    x: Annotated[int | None, Field(ge=-8192, le=8192)] = None
+    y: Annotated[int | None, Field(ge=-8192, le=8192)] = None
+    opacity: Annotated[int | None, Field(ge=0, le=255)] = None
+    z_index: Annotated[int | None, Field(ge=-32768, le=32767)] = None
+
+
+class PixelArtValidationIssue(StrictModel):
+    code: str
+    severity: Literal["warning", "error"]
+    message: str
+    frame: int | None = None
+    x: int | None = None
+    y: int | None = None
+
+
+class PixelArtValidationResult(StrictModel):
+    source_path: str
+    sha256: str
+    valid: bool
+    frames: list[int]
+    unique_colors: int
+    semi_transparent_pixels: int
+    off_palette_pixels: int
+    isolated_pixels: int
+    issues: list[PixelArtValidationIssue]
+
+
+class LoopTransitionValidationResult(StrictModel):
+    source_path: str
+    sha256: str
+    valid: bool
+    tag: str | None
+    first_frame: int
+    last_frame: int
+    changed_pixel_count: int
+    changed_ratio: float
+    changed_bounds: RectangleInfo | None
+    first_duration_ms: int
+    last_duration_ms: int
+    duration_delta_ms: int
+    issues: list[AnimationValidationIssue]
+
+
+class TileMetadataItem(StrictModel):
+    index: int
+    data: str
+    color: str
+    properties: dict[str, str | int | float | bool]
+
+
+class TileMetadataResult(StrictModel):
+    source_path: str
+    sha256: str
+    tileset: str
+    base_index: int
+    data: str
+    properties: dict[str, str | int | float | bool]
+    tiles: list[TileMetadataItem]
+
+
+class TileMetadataEditOperation(StrictModel):
+    action: Literal["set", "remove"]
+    target: Literal["tileset", "tile"]
+    key: Annotated[str, Field(min_length=1, max_length=128)]
+    value: str | int | float | bool | None = None
+    tile_index: Annotated[int | None, Field(ge=0, le=4096)] = None
+
+
+class MotionFrameMetric(StrictModel):
+    frame: int
+    duration_ms: int
+    bounds: RectangleInfo | None
+    opaque_pixels: int
+    centroid: FloatPointInfo | None
+    velocity_x: float | None
+    velocity_y: float | None
+    acceleration_x: float | None
+    acceleration_y: float | None
+
+
+class MotionReportResult(StrictModel):
+    source_path: str
+    sha256: str
+    tag: str | None
+    layer: str | None
+    frames: list[MotionFrameMetric]
+    total_distance: float
+    maximum_speed: float
+
+
+class CollisionPolygon(StrictModel):
+    points: list[PointInfo]
+    area: float
+
+
+class CollisionPolygonFrame(StrictModel):
+    frame: int
+    polygons: list[CollisionPolygon]
+
+
+class CollisionPolygonResult(StrictModel):
+    source_path: str
+    sha256: str
+    frames: list[CollisionPolygonFrame]
+
+
+class BitmapGlyphInput(StrictModel):
+    codepoint: Annotated[int, Field(ge=0, le=1_114_111)]
+    frame: Annotated[int, Field(ge=0)] = 0
+    bounds: RectangleInput
+    advance: Annotated[int | None, Field(ge=0, le=4096)] = None
+    bearing_x: Annotated[int, Field(ge=-4096, le=4096)] = 0
+    bearing_y: Annotated[int, Field(ge=-4096, le=4096)] = 0
+
+
+class BitmapFontResult(StrictModel):
+    image: FileResult
+    data: FileResult
+    glyph_count: int
+    line_height: int
 
 
 class FrameEditOperation(StrictModel):

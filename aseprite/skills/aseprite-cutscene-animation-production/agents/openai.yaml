@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Cutscene Animation"
+  short_description: "Produce event-driven timed pixel cutscenes"
+  default_prompt: "Use $aseprite-cutscene-animation-production to stage and validate this cutscene."

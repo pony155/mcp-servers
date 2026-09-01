@@ -14,30 +14,41 @@ from .adapter import AsepriteAdapter
 from .config import Settings
 from .models import (
     AnimationFrameDefinition,
+    AnimationEventEditOperation,
     AnimationTagDefinition,
     AnimationValidationResult,
     AssetSetValidationResult,
     AtlasResult,
     BatchExportJob,
     BatchExportResult,
+    BitmapFontResult,
+    BitmapGlyphInput,
+    BlendModeEditOperation,
+    CelEditOperation,
     CelInspectionResult,
     CompositedPixelReadResult,
     ContactSheetResult,
     CollisionMaskResult,
+    CollisionPolygonResult,
     ExportProfile,
     ExportProfileValidationResult,
     FrameComparisonResult,
+    FrameExportInput,
+    FrameExportResult,
     FrameEditOperation,
     FrameDefinition,
     FileResult,
     HealthResult,
     LayerDefinition,
     LayerEditOperation,
+    LoopTransitionValidationResult,
+    MotionReportResult,
     MutationResult,
     PaletteAnalysisResult,
     PaletteColorInput,
     PaletteEntryEditOperation,
     PixelInput,
+    PixelArtValidationResult,
     PixelReadResult,
     PixelRunInput,
     PropertyEditOperation,
@@ -54,6 +65,8 @@ from .models import (
     StrokeInput,
     TagEditOperation,
     TilemapCellInput,
+    TileMetadataEditOperation,
+    TileMetadataResult,
     TilesetEditOperation,
     TilesetExportResult,
     TilesetInspectionResult,
@@ -1124,5 +1137,443 @@ def build_server(settings: Settings) -> MCPServer:
             require_consistent_color_mode=require_consistent_color_mode,
         )
 
-    logger.info("Registered 54 Aseprite MCP tools")
+    @server.tool()
+    async def aseprite_merge_layers(
+        source_path: str,
+        output_path: str,
+        mode: Literal["merge_down", "flatten"],
+        layer: Annotated[str | None, Field(min_length=1, max_length=256)] = None,
+        visible_only: bool = True,
+        output_layer_name: Annotated[str | None, Field(min_length=1, max_length=128)] = None,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Merge one layer downward or flatten all/visible layers in an output revision."""
+        return await adapter.merge_layers(
+            source_path, output_path, mode=mode, layer=layer, visible_only=visible_only,
+            output_layer_name=output_layer_name, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_export_frames(
+        source_path: str,
+        exports: Annotated[list[FrameExportInput], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+    ) -> FrameExportResult:
+        """Export explicit zero-based frames to explicit PNG output paths."""
+        return await adapter.export_frames(source_path, exports=exports, overwrite=overwrite)
+
+    @server.tool()
+    async def aseprite_import_frames(
+        source_path: str,
+        output_path: str,
+        frame_paths: Annotated[list[str], Field(min_length=1, max_length=256)],
+        layer: Annotated[str, Field(min_length=1, max_length=256)],
+        insert_at: Annotated[int | None, Field(ge=0)] = None,
+        duration_ms: Annotated[int, Field(ge=1, le=60_000)] = 100,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Append or insert explicit same-size PNG files as frames on one image layer."""
+        return await adapter.import_frames(
+            source_path, output_path, frame_paths=frame_paths, layer=layer,
+            insert_at=insert_at, duration_ms=duration_ms, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_render_tilemap_preview(
+        source_path: str,
+        tileset: Annotated[str, Field(min_length=1, max_length=128)],
+        width_cells: Annotated[int, Field(ge=1, le=512)],
+        height_cells: Annotated[int, Field(ge=1, le=512)],
+        cells: Annotated[list[TilemapCellInput], Field(max_length=100_000)],
+    ) -> Image:
+        """Return an inline PNG for an explicit arrangement of tileset cells."""
+        return Image(data=await adapter.render_tilemap_preview(
+            source_path, tileset=tileset, width_cells=width_cells,
+            height_cells=height_cells, cells=cells,
+        ), format="png")
+
+    @server.tool()
+    async def aseprite_edit_grid(
+        source_path: str,
+        output_path: str,
+        x: Annotated[int, Field(ge=-4096, le=4096)],
+        y: Annotated[int, Field(ge=-4096, le=4096)],
+        width: Annotated[int, Field(ge=1, le=4096)],
+        height: Annotated[int, Field(ge=1, le=4096)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Set sprite grid origin and cell dimensions in a new document revision."""
+        return await adapter.edit_grid(
+            source_path, output_path, x=x, y=y, width=width, height=height,
+            overwrite=overwrite, expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_edit_blend_modes(
+        source_path: str,
+        output_path: str,
+        operations: Annotated[list[BlendModeEditOperation], Field(min_length=1, max_length=128)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Apply validated blend modes to exact non-group layer paths."""
+        return await adapter.edit_blend_modes(
+            source_path, output_path, operations=operations, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_edit_animation_events(
+        source_path: str,
+        output_path: str,
+        operations: Annotated[
+            list[AnimationEventEditOperation], Field(min_length=1, max_length=256)
+        ],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Set or remove structured frame events stored in sprite metadata."""
+        return await adapter.edit_animation_events(
+            source_path, output_path, operations=operations, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_preview_nine_slice(
+        source_path: str,
+        slice_name: Annotated[str, Field(min_length=1, max_length=128)],
+        frame: Annotated[int, Field(ge=0)],
+        width: Annotated[int, Field(ge=1, le=4096)],
+        height: Annotated[int, Field(ge=1, le=4096)],
+    ) -> Image:
+        """Return an inline PNG showing a named nine-slice at a requested size."""
+        return Image(data=await adapter.preview_nine_slice(
+            source_path, slice_name=slice_name, frame=frame, width=width, height=height,
+        ), format="png")
+
+    @server.tool()
+    async def aseprite_edit_cels(
+        source_path: str,
+        output_path: str,
+        operations: Annotated[list[CelEditOperation], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Move, fade, reorder, unlink, or remove exact layer/frame cels."""
+        return await adapter.edit_cels(
+            source_path, output_path, operations=operations, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_generate_inbetweens(
+        source_path: str,
+        output_path: str,
+        layer: Annotated[str, Field(min_length=1, max_length=256)],
+        first_frame: Annotated[int, Field(ge=0)],
+        last_frame: Annotated[int, Field(ge=1)],
+        count: Annotated[int, Field(ge=1, le=64)],
+        interpolation: Literal["hold", "nearest", "crossfade"] = "nearest",
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Insert bounded tween frames for one cel while preserving the starting frame's layers."""
+        return await adapter.generate_inbetweens(
+            source_path, output_path, layer=layer, first_frame=first_frame,
+            last_frame=last_frame, count=count, interpolation=interpolation,
+            overwrite=overwrite, expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_palette_cycle(
+        source_path: str,
+        output_path: str,
+        indices: Annotated[
+            list[Annotated[int, Field(ge=0, le=255)]], Field(min_length=2, max_length=256)
+        ],
+        first_frame: Annotated[int, Field(ge=0)],
+        last_frame: Annotated[int, Field(ge=0)],
+        step: Annotated[int, Field(ge=-255, le=255)] = 1,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Rotate selected indexed-color entries progressively across an existing frame range."""
+        return await adapter.palette_cycle(
+            source_path, output_path, indices=indices, first_frame=first_frame,
+            last_frame=last_frame, step=step, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_preview_onion_skin(
+        source_path: str,
+        frame: Annotated[int, Field(ge=0)],
+        before: Annotated[int, Field(ge=0, le=8)] = 1,
+        after: Annotated[int, Field(ge=0, le=8)] = 1,
+        opacity: Annotated[int, Field(ge=1, le=255)] = 96,
+        scale: Annotated[int, Field(ge=1, le=16)] = 1,
+    ) -> Image:
+        """Return a PNG with earlier frames tinted red and later frames tinted blue."""
+        return Image(data=await adapter.preview_onion_skin(
+            source_path, frame=frame, before=before, after=after,
+            opacity=opacity, scale=scale,
+        ), format="png")
+
+    @server.tool()
+    async def aseprite_select_by_color(
+        source_path: str,
+        output_path: str,
+        colors: Annotated[list[PaletteColorInput], Field(min_length=1, max_length=256)],
+        frame: Annotated[int, Field(ge=0)] = 0,
+        layer: Annotated[str | None, Field(min_length=1, max_length=256)] = None,
+        tolerance: Annotated[int, Field(ge=0, le=510)] = 0,
+        selection_mode: Literal["replace", "add", "subtract", "intersect"] = "replace",
+        include_alpha: bool = True,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Build a document selection from matching layer or composited frame colors."""
+        return await adapter.select_by_color(
+            source_path, output_path, colors=colors, frame=frame, layer=layer,
+            tolerance=tolerance, selection_mode=selection_mode, include_alpha=include_alpha,
+            overwrite=overwrite, expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_create_tileset_from_sheet(
+        source_path: str,
+        output_path: str,
+        layer: Annotated[str, Field(min_length=1, max_length=256)],
+        frame: Annotated[int, Field(ge=0)],
+        name: Annotated[str, Field(min_length=1, max_length=128)],
+        tile_width: Annotated[int, Field(ge=1, le=4096)],
+        tile_height: Annotated[int, Field(ge=1, le=4096)],
+        margin: Annotated[int, Field(ge=0, le=4096)] = 0,
+        spacing: Annotated[int, Field(ge=0, le=4096)] = 0,
+        columns: Annotated[int | None, Field(ge=1, le=4096)] = None,
+        tile_count: Annotated[int | None, Field(ge=1, le=4096)] = None,
+        deduplicate: bool = True,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Slice one image-layer cel into a named tileset with optional deduplication."""
+        return await adapter.create_tileset_from_sheet(
+            source_path, output_path, layer=layer, frame=frame, name=name,
+            tile_width=tile_width, tile_height=tile_height, margin=margin,
+            spacing=spacing, columns=columns, tile_count=tile_count,
+            deduplicate=deduplicate, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_validate_pixel_art(
+        source_path: str,
+        frames: Annotated[
+            list[Annotated[int, Field(ge=0)]] | None, Field(max_length=256)
+        ] = None,
+        max_colors: Annotated[int | None, Field(ge=1, le=256)] = None,
+        require_binary_alpha: bool = True,
+        detect_isolated_pixels: bool = True,
+        allowed_palette: Annotated[
+            list[PaletteColorInput] | None, Field(max_length=256)
+        ] = None,
+    ) -> PixelArtValidationResult:
+        """Check color count, alpha, palette compliance, and isolated opaque pixels."""
+        return await adapter.validate_pixel_art(
+            source_path, frames=frames or [], max_colors=max_colors,
+            require_binary_alpha=require_binary_alpha,
+            detect_isolated_pixels=detect_isolated_pixels,
+            allowed_palette=allowed_palette or [],
+        )
+
+    @server.tool()
+    async def aseprite_validate_loop_transition(
+        source_path: str,
+        tag: Annotated[str | None, Field(min_length=1, max_length=128)] = None,
+        first_frame: Annotated[int, Field(ge=0)] = 0,
+        last_frame: Annotated[int | None, Field(ge=0)] = None,
+        max_changed_pixels: Annotated[int, Field(ge=0, le=16_777_216)] = 0,
+        require_equal_duration: bool = False,
+    ) -> LoopTransitionValidationResult:
+        """Validate visual and optional timing continuity between loop endpoints."""
+        return await adapter.validate_loop_transition(
+            source_path, tag=tag, first_frame=first_frame, last_frame=last_frame,
+            max_changed_pixels=max_changed_pixels,
+            require_equal_duration=require_equal_duration,
+        )
+
+    @server.tool()
+    async def aseprite_inspect_tile_metadata(
+        source_path: str,
+        tileset: Annotated[str, Field(min_length=1, max_length=128)],
+        tile_indices: Annotated[
+            list[Annotated[int, Field(ge=0, le=4096)]] | None, Field(max_length=4096)
+        ] = None,
+    ) -> TileMetadataResult:
+        """Read scalar properties and user metadata from a tileset and selected tiles."""
+        return await adapter.inspect_tile_metadata(
+            source_path, tileset=tileset, tile_indices=tile_indices or []
+        )
+
+    @server.tool()
+    async def aseprite_edit_tile_metadata(
+        source_path: str,
+        output_path: str,
+        tileset: Annotated[str, Field(min_length=1, max_length=128)],
+        operations: Annotated[
+            list[TileMetadataEditOperation], Field(min_length=1, max_length=512)
+        ],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Set or remove scalar properties on an exact tileset or tile index."""
+        return await adapter.edit_tile_metadata(
+            source_path, output_path, tileset=tileset, operations=operations,
+            overwrite=overwrite, expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_edit_color_space(
+        source_path: str,
+        output_path: str,
+        mode: Literal[
+            "assign_srgb", "assign_none", "assign_icc", "convert_srgb", "convert_icc"
+        ],
+        profile_path: str | None = None,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Assign or convert a document color space using sRGB or an authorized ICC profile."""
+        return await adapter.edit_color_space(
+            source_path, output_path, mode=mode, profile_path=profile_path,
+            overwrite=overwrite, expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_retime_animation(
+        source_path: str,
+        output_path: str,
+        mode: Literal["fps", "total_duration", "scale"],
+        tag: Annotated[str | None, Field(min_length=1, max_length=128)] = None,
+        target_fps: Annotated[float | None, Field(gt=0.01, le=1000)] = None,
+        target_total_duration_ms: Annotated[
+            int | None, Field(ge=1, le=3_600_000)
+        ] = None,
+        scale: Annotated[float | None, Field(gt=0.001, le=1000)] = None,
+        distribution: Literal[
+            "preserve", "uniform", "ease_in", "ease_out", "ease_in_out"
+        ] = "preserve",
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Retime all frames or one tag to an FPS, total duration, or scale factor."""
+        return await adapter.retime_animation(
+            source_path, output_path, tag=tag, mode=mode, target_fps=target_fps,
+            target_total_duration_ms=target_total_duration_ms, scale=scale,
+            distribution=distribution, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_bake_tag_direction(
+        source_path: str,
+        output_path: str,
+        tag: Annotated[str, Field(min_length=1, max_length=128)],
+        output_tag: Annotated[str, Field(min_length=1, max_length=128)],
+        repetitions: Annotated[int, Field(ge=1, le=16)] = 1,
+        link_images: bool = False,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Append a forward frame sequence that materializes a tag's playback direction."""
+        return await adapter.bake_tag_direction(
+            source_path, output_path, tag=tag, output_tag=output_tag,
+            repetitions=repetitions, link_images=link_images, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_generate_motion_report(
+        source_path: str,
+        tag: Annotated[str | None, Field(min_length=1, max_length=128)] = None,
+        layer: Annotated[str | None, Field(min_length=1, max_length=256)] = None,
+        alpha_threshold: Annotated[int, Field(ge=1, le=255)] = 1,
+    ) -> MotionReportResult:
+        """Measure bounds, centroid, velocity, acceleration, travel, and peak speed."""
+        return await adapter.generate_motion_report(
+            source_path, tag=tag, layer=layer, alpha_threshold=alpha_threshold
+        )
+
+    @server.tool()
+    async def aseprite_generate_collision_polygons(
+        source_path: str,
+        frames: Annotated[
+            list[Annotated[int, Field(ge=0)]] | None, Field(max_length=256)
+        ] = None,
+        layer: Annotated[str | None, Field(min_length=1, max_length=256)] = None,
+        alpha_threshold: Annotated[int, Field(ge=1, le=255)] = 1,
+        simplify_tolerance: Annotated[int, Field(ge=0, le=64)] = 0,
+        max_polygons: Annotated[int, Field(ge=1, le=1024)] = 128,
+        max_points_per_polygon: Annotated[int, Field(ge=3, le=8192)] = 2048,
+    ) -> CollisionPolygonResult:
+        """Trace bounded outer collision contours from composited or layer alpha."""
+        return await adapter.generate_collision_polygons(
+            source_path, frames=frames or [], layer=layer,
+            alpha_threshold=alpha_threshold, simplify_tolerance=simplify_tolerance,
+            max_polygons=max_polygons, max_points_per_polygon=max_points_per_polygon,
+        )
+
+    @server.tool()
+    async def aseprite_export_bitmap_font(
+        source_path: str,
+        image_output_path: str,
+        data_output_path: str,
+        glyphs: Annotated[list[BitmapGlyphInput], Field(min_length=1, max_length=512)],
+        font_name: Annotated[str, Field(min_length=1, max_length=128)],
+        line_height: Annotated[int, Field(ge=1, le=4096)],
+        columns: Annotated[int, Field(ge=1, le=64)] = 16,
+        padding: Annotated[int, Field(ge=0, le=64)] = 1,
+        overwrite: bool = False,
+    ) -> BitmapFontResult:
+        """Export explicit glyph rectangles as a PNG atlas and deterministic JSON metrics."""
+        return await adapter.export_bitmap_font(
+            source_path, image_output_path, data_output_path, glyphs=glyphs,
+            font_name=font_name, line_height=line_height, columns=columns,
+            padding=padding, overwrite=overwrite,
+        )
+
+    logger.info("Registered 78 Aseprite MCP tools")
     return server

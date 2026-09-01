@@ -17,6 +17,7 @@ from .errors import AsepriteMCPError
 from .interop import ProcessPathMapper, resolve_execution_mode
 from .models import (
     AnimationFrameDefinition,
+    AnimationEventEditOperation,
     AnimationTagDefinition,
     AnimationValidationResult,
     AssetSetValidationResult,
@@ -25,25 +26,36 @@ from .models import (
     BatchExportItem,
     BatchExportJob,
     BatchExportResult,
+    BitmapFontResult,
+    BitmapGlyphInput,
+    BlendModeEditOperation,
+    CelEditOperation,
     CelInspectionResult,
     CompositedPixelReadResult,
     ContactSheetResult,
     CollisionMaskResult,
+    CollisionPolygonResult,
     ExportProfile,
     ExportProfileIssue,
     ExportProfileValidationResult,
     FileResult,
     FrameComparisonResult,
+    FrameExportInput,
+    FrameExportItem,
+    FrameExportResult,
     FrameEditOperation,
     FrameDefinition,
     HealthResult,
     LayerDefinition,
     LayerEditOperation,
+    LoopTransitionValidationResult,
+    MotionReportResult,
     MutationResult,
     PaletteAnalysisResult,
     PaletteColorInput,
     PaletteEntryEditOperation,
     PixelInput,
+    PixelArtValidationResult,
     PixelReadResult,
     PixelRunInput,
     PropertyEditOperation,
@@ -61,6 +73,8 @@ from .models import (
     StrokeInput,
     TagEditOperation,
     TilemapCellInput,
+    TileMetadataEditOperation,
+    TileMetadataResult,
     TilesetEditOperation,
     TilesetExportResult,
     TilesetInspectionResult,
@@ -1916,6 +1930,7 @@ class AsepriteAdapter:
             "import_palette", source_path, output_path, overwrite=overwrite,
             expected_source_hash=expected_source_hash,
             payload={"palette_path": self._process_path(palette)},
+            additional_lock_paths=[palette],
         )
 
     async def export_palette(
@@ -2047,6 +2062,471 @@ class AsepriteAdapter:
             valid=valid, profile_name=profile.name, items=items, issues=issues
         )
 
+    async def merge_layers(
+        self, source_path: str, output_path: str, *, mode: Literal["merge_down", "flatten"],
+        layer: str | None, visible_only: bool, output_layer_name: str | None,
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if mode == "merge_down" and layer is None:
+            raise AsepriteMCPError("INVALID_INPUT", "merge_down requires a layer path")
+        return await self._bridge_mutation(
+            "merge_layers", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"mode": mode, "layer": layer, "visible_only": visible_only,
+                     "output_layer_name": output_layer_name},
+        )
+
+    async def export_frames(
+        self, source_path: str, *, exports: list[FrameExportInput], overwrite: bool,
+    ) -> FrameExportResult:
+        if not 1 <= len(exports) <= 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "exports must contain 1 to 256 items")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        outputs = [self.paths.output_file(
+            item.output_path, extensions=frozenset({".png"}), overwrite=overwrite
+        ) for item in exports]
+        if len(set(outputs)) != len(outputs) or source in outputs:
+            raise AsepriteMCPError(
+                "PATH_NOT_ALLOWED", "frame outputs must be unique and differ from the source"
+            )
+        temporaries = [temporary_sibling(path) for path in outputs]
+        async with self._locked([source, *outputs]):
+            try:
+                await self._bridge("export_frames", {
+                    "source_path": self._process_path(source),
+                    "exports": [{"frame": item.frame, "output_path": self._process_path(temp)}
+                        for item, temp in zip(exports, temporaries, strict=True)],
+                })
+                if not all(path.is_file() for path in temporaries):
+                    raise AsepriteMCPError("ASEPRITE_FAILED", "Aseprite did not export every frame")
+                for temporary, output in zip(temporaries, outputs, strict=True):
+                    publish_file(temporary, output)
+            finally:
+                for temporary in temporaries:
+                    temporary.unlink(missing_ok=True)
+        return FrameExportResult(
+            source_path=str(source), sha256=sha256_file(source),
+            items=[FrameExportItem(frame=item.frame, file=self._file_result(output))
+                   for item, output in zip(exports, outputs, strict=True)],
+        )
+
+    async def import_frames(
+        self, source_path: str, output_path: str, *, frame_paths: list[str], layer: str,
+        insert_at: int | None, duration_ms: int, overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not 1 <= len(frame_paths) <= 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "frame_paths must contain 1 to 256 files")
+        frames = [self.paths.existing_file(path, extensions=frozenset({".png"}))
+                  for path in frame_paths]
+        return await self._bridge_mutation(
+            "import_frames", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"frame_paths": [self._process_path(path) for path in frames],
+                     "layer": layer, "insert_at": insert_at, "duration_ms": duration_ms},
+            additional_lock_paths=frames,
+        )
+
+    async def render_tilemap_preview(
+        self, source_path: str, *, tileset: str, width_cells: int, height_cells: int,
+        cells: list[TilemapCellInput],
+    ) -> bytes:
+        if len(cells) > 100_000:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "tilemap preview exceeds 100000 cells")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS)
+        with tempfile.TemporaryDirectory(
+            prefix="aseprite-tilemap-preview-", dir=self.bridge_temp_root
+        ) as directory:
+            output = Path(directory) / "preview.png"
+            async with self._locked([source]):
+                await self._bridge("render_tilemap_preview", {
+                    "source_path": self._process_path(source), "tileset": tileset,
+                    "width_cells": width_cells, "height_cells": height_cells,
+                    "cells": [cell.model_dump() for cell in cells],
+                    "output_path": self._process_path(output),
+                    "max_pixels": MAX_CANVAS_PIXELS,
+                })
+            if not output.is_file():
+                raise AsepriteMCPError("ASEPRITE_FAILED", "tilemap preview was not created")
+            if output.stat().st_size > self.settings.max_capture_bytes:
+                raise AsepriteMCPError("LIMIT_EXCEEDED", "tilemap preview exceeds inline limit")
+            return output.read_bytes()
+
+    async def edit_grid(
+        self, source_path: str, output_path: str, *, x: int, y: int, width: int,
+        height: int, overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        return await self._bridge_mutation(
+            "edit_grid", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"x": x, "y": y, "width": width, "height": height},
+        )
+
+    async def edit_blend_modes(
+        self, source_path: str, output_path: str, *, operations: list[BlendModeEditOperation],
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not 1 <= len(operations) <= 128:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "operations must contain 1 to 128 items")
+        return await self._bridge_mutation(
+            "edit_blend_modes", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def edit_animation_events(
+        self, source_path: str, output_path: str, *,
+        operations: list[AnimationEventEditOperation], overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not 1 <= len(operations) <= 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "operations must contain 1 to 256 items")
+        return await self._bridge_mutation(
+            "edit_animation_events", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def preview_nine_slice(
+        self, source_path: str, *, slice_name: str, frame: int, width: int, height: int,
+    ) -> bytes:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS)
+        with tempfile.TemporaryDirectory(
+            prefix="aseprite-nine-slice-preview-", dir=self.bridge_temp_root
+        ) as directory:
+            output = Path(directory) / "preview.png"
+            async with self._locked([source]):
+                await self._bridge("preview_nine_slice", {
+                    "source_path": self._process_path(source), "slice": slice_name,
+                    "frame": frame, "width": width, "height": height,
+                    "output_path": self._process_path(output),
+                    "max_pixels": MAX_CANVAS_PIXELS,
+                })
+            if not output.is_file():
+                raise AsepriteMCPError("ASEPRITE_FAILED", "nine-slice preview was not created")
+            if output.stat().st_size > self.settings.max_capture_bytes:
+                raise AsepriteMCPError("LIMIT_EXCEEDED", "nine-slice preview exceeds inline limit")
+            return output.read_bytes()
+
+    async def edit_cels(
+        self, source_path: str, output_path: str, *, operations: list[CelEditOperation],
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not 1 <= len(operations) <= 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "operations must contain 1 to 256 items")
+        for operation in operations:
+            if operation.action == "set_position" and None in (operation.x, operation.y):
+                raise AsepriteMCPError("INVALID_INPUT", "set_position requires x and y")
+            if operation.action == "set_opacity" and operation.opacity is None:
+                raise AsepriteMCPError("INVALID_INPUT", "set_opacity requires opacity")
+            if operation.action == "set_z_index" and operation.z_index is None:
+                raise AsepriteMCPError("INVALID_INPUT", "set_z_index requires z_index")
+        return await self._bridge_mutation(
+            "edit_cels", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def generate_inbetweens(
+        self, source_path: str, output_path: str, *, layer: str, first_frame: int,
+        last_frame: int, count: int, interpolation: Literal["hold", "nearest", "crossfade"],
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if first_frame >= last_frame:
+            raise AsepriteMCPError("INVALID_SELECTOR", "first_frame must precede last_frame")
+        if count < 1 or count > 64:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "count must be between 1 and 64")
+        return await self._bridge_mutation(
+            "generate_inbetweens", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"layer": layer, "first_frame": first_frame, "last_frame": last_frame,
+                     "count": count, "interpolation": interpolation,
+                     "max_frames": MAX_FRAMES,
+                     "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS},
+        )
+
+    async def palette_cycle(
+        self, source_path: str, output_path: str, *, indices: list[int],
+        first_frame: int, last_frame: int, step: int, overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not 2 <= len(indices) <= 256 or len(set(indices)) != len(indices):
+            raise AsepriteMCPError(
+                "INVALID_INPUT", "indices must contain 2 to 256 unique palette indices"
+            )
+        if first_frame > last_frame:
+            raise AsepriteMCPError("INVALID_SELECTOR", "first_frame must not exceed last_frame")
+        return await self._bridge_mutation(
+            "palette_cycle", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"indices": indices, "first_frame": first_frame,
+                     "last_frame": last_frame, "step": step,
+                     "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS},
+        )
+
+    async def preview_onion_skin(
+        self, source_path: str, *, frame: int, before: int, after: int, opacity: int,
+        scale: int,
+    ) -> bytes:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        with tempfile.TemporaryDirectory(
+            prefix="aseprite-onion-preview-", dir=self.bridge_temp_root
+        ) as directory:
+            output = Path(directory) / "preview.png"
+            async with self._locked([source]):
+                await self._bridge("preview_onion_skin", {
+                    "source_path": self._process_path(source), "frame": frame,
+                    "before": before, "after": after, "opacity": opacity,
+                    "scale": scale, "output_path": self._process_path(output),
+                    "max_pixels": MAX_CANVAS_PIXELS,
+                })
+            if not output.is_file():
+                raise AsepriteMCPError("ASEPRITE_FAILED", "onion-skin preview was not created")
+            if output.stat().st_size > self.settings.max_capture_bytes:
+                raise AsepriteMCPError("LIMIT_EXCEEDED", "onion-skin preview exceeds inline limit")
+            return output.read_bytes()
+
+    async def select_by_color(
+        self, source_path: str, output_path: str, *, colors: list[PaletteColorInput],
+        frame: int, layer: str | None, tolerance: int,
+        selection_mode: Literal["replace", "add", "subtract", "intersect"],
+        include_alpha: bool, overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not 1 <= len(colors) <= 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "colors must contain 1 to 256 entries")
+        return await self._bridge_mutation(
+            "select_by_color", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"colors": [item.color for item in colors], "frame": frame,
+                     "layer": layer, "tolerance": tolerance,
+                     "selection_mode": selection_mode, "include_alpha": include_alpha,
+                     "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS},
+        )
+
+    async def create_tileset_from_sheet(
+        self, source_path: str, output_path: str, *, layer: str, frame: int,
+        name: str, tile_width: int, tile_height: int, margin: int, spacing: int,
+        columns: int | None, tile_count: int | None, deduplicate: bool,
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        self._validate_canvas_dimensions(tile_width, tile_height)
+        return await self._bridge_mutation(
+            "create_tileset_from_sheet", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"layer": layer, "frame": frame, "name": name,
+                     "tile_width": tile_width, "tile_height": tile_height,
+                     "margin": margin, "spacing": spacing, "columns": columns,
+                     "tile_count": tile_count, "deduplicate": deduplicate,
+                     "max_tiles": 4096, "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS},
+        )
+
+    async def validate_pixel_art(
+        self, source_path: str, *, frames: list[int], max_colors: int | None,
+        require_binary_alpha: bool, detect_isolated_pixels: bool,
+        allowed_palette: list[PaletteColorInput],
+    ) -> PixelArtValidationResult:
+        if len(frames) > MAX_FRAMES or len(allowed_palette) > 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "validation input exceeds its limit")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge("validate_pixel_art", {
+                "source_path": self._process_path(source), "frames": frames,
+                "max_colors": max_colors, "require_binary_alpha": require_binary_alpha,
+                "detect_isolated_pixels": detect_isolated_pixels,
+                "allowed_palette": [item.color for item in allowed_palette],
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            })
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return PixelArtValidationResult.model_validate(result)
+
+    async def validate_loop_transition(
+        self, source_path: str, *, tag: str | None, first_frame: int,
+        last_frame: int | None, max_changed_pixels: int, require_equal_duration: bool,
+    ) -> LoopTransitionValidationResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge("validate_loop_transition", {
+                "source_path": self._process_path(source), "tag": tag,
+                "first_frame": first_frame, "last_frame": last_frame,
+                "max_changed_pixels": max_changed_pixels,
+                "require_equal_duration": require_equal_duration,
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            })
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return LoopTransitionValidationResult.model_validate(result)
+
+    async def inspect_tile_metadata(
+        self, source_path: str, *, tileset: str, tile_indices: list[int],
+    ) -> TileMetadataResult:
+        if len(tile_indices) > 4096 or len(set(tile_indices)) != len(tile_indices):
+            raise AsepriteMCPError(
+                "INVALID_INPUT", "tile_indices must contain at most 4096 unique values"
+            )
+        source = self.paths.existing_file(source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge("inspect_tile_metadata", {
+                "source_path": self._process_path(source), "tileset": tileset,
+                "tile_indices": tile_indices, "max_tiles": 4096,
+            })
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return TileMetadataResult.model_validate(result)
+
+    async def edit_tile_metadata(
+        self, source_path: str, output_path: str, *, tileset: str,
+        operations: list[TileMetadataEditOperation], overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not 1 <= len(operations) <= 512:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "operations must contain 1 to 512 items")
+        for operation in operations:
+            if operation.action == "set" and operation.value is None:
+                raise AsepriteMCPError("INVALID_INPUT", "set requires a scalar value")
+            if operation.target == "tile" and operation.tile_index is None:
+                raise AsepriteMCPError("INVALID_INPUT", "tile metadata requires tile_index")
+        return await self._bridge_mutation(
+            "edit_tile_metadata", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"tileset": tileset,
+                     "operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def edit_color_space(
+        self, source_path: str, output_path: str, *,
+        mode: Literal["assign_srgb", "assign_none", "assign_icc", "convert_srgb", "convert_icc"],
+        profile_path: str | None, overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        needs_profile = mode in {"assign_icc", "convert_icc"}
+        if needs_profile != (profile_path is not None):
+            raise AsepriteMCPError(
+                "INVALID_INPUT", "profile_path is required only for assign_icc or convert_icc"
+            )
+        profile = None
+        if profile_path is not None:
+            profile = self.paths.existing_file(
+                profile_path, extensions=frozenset({".icc", ".icm"})
+            )
+        return await self._bridge_mutation(
+            "edit_color_space", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"mode": mode,
+                     "profile_path": self._process_path(profile) if profile else None},
+            additional_lock_paths=[profile] if profile else None,
+        )
+
+    async def retime_animation(
+        self, source_path: str, output_path: str, *, tag: str | None,
+        mode: Literal["fps", "total_duration", "scale"], target_fps: float | None,
+        target_total_duration_ms: int | None, scale: float | None,
+        distribution: Literal["preserve", "uniform", "ease_in", "ease_out", "ease_in_out"],
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        supplied = sum(value is not None for value in (target_fps, target_total_duration_ms, scale))
+        expected = {"fps": target_fps, "total_duration": target_total_duration_ms,
+                    "scale": scale}[mode]
+        if supplied != 1 or expected is None:
+            raise AsepriteMCPError("INVALID_INPUT", "supply only the target selected by mode")
+        return await self._bridge_mutation(
+            "retime_animation", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"tag": tag, "mode": mode, "target_fps": target_fps,
+                     "target_total_duration_ms": target_total_duration_ms,
+                     "scale": scale, "distribution": distribution},
+        )
+
+    async def bake_tag_direction(
+        self, source_path: str, output_path: str, *, tag: str, output_tag: str,
+        repetitions: int, link_images: bool, overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        return await self._bridge_mutation(
+            "bake_tag_direction", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"tag": tag, "output_tag": output_tag, "repetitions": repetitions,
+                     "link_images": link_images, "max_frames": MAX_FRAMES},
+        )
+
+    async def generate_motion_report(
+        self, source_path: str, *, tag: str | None, layer: str | None,
+        alpha_threshold: int,
+    ) -> MotionReportResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge("generate_motion_report", {
+                "source_path": self._process_path(source), "tag": tag, "layer": layer,
+                "alpha_threshold": alpha_threshold,
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            })
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return MotionReportResult.model_validate(result)
+
+    async def generate_collision_polygons(
+        self, source_path: str, *, frames: list[int], layer: str | None,
+        alpha_threshold: int, simplify_tolerance: int, max_polygons: int,
+        max_points_per_polygon: int,
+    ) -> CollisionPolygonResult:
+        if len(frames) > MAX_FRAMES:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "frames may contain at most 256 values")
+        if len(set(frames)) != len(frames):
+            raise AsepriteMCPError("INVALID_INPUT", "frames must not contain duplicates")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge("generate_collision_polygons", {
+                "source_path": self._process_path(source), "frames": frames,
+                "layer": layer, "alpha_threshold": alpha_threshold,
+                "simplify_tolerance": simplify_tolerance, "max_polygons": max_polygons,
+                "max_points_per_polygon": max_points_per_polygon,
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            })
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return CollisionPolygonResult.model_validate(result)
+
+    async def export_bitmap_font(
+        self, source_path: str, image_output_path: str, data_output_path: str, *,
+        glyphs: list[BitmapGlyphInput], font_name: str, line_height: int,
+        columns: int, padding: int, overwrite: bool,
+    ) -> BitmapFontResult:
+        if not 1 <= len(glyphs) <= 512:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "glyphs must contain 1 to 512 entries")
+        codepoints = [glyph.codepoint for glyph in glyphs]
+        if len(set(codepoints)) != len(codepoints):
+            raise AsepriteMCPError("INVALID_INPUT", "glyph codepoints must be unique")
+        if any(0xD800 <= codepoint <= 0xDFFF for codepoint in codepoints):
+            raise AsepriteMCPError("INVALID_INPUT", "surrogate codepoints are not valid Unicode")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        image_output = self.paths.output_file(
+            image_output_path, extensions=frozenset({".png"}), overwrite=overwrite
+        )
+        data_output = self.paths.output_file(
+            data_output_path, extensions=frozenset({".json"}), overwrite=overwrite
+        )
+        if len({source, image_output, data_output}) != 3:
+            raise AsepriteMCPError("PATH_NOT_ALLOWED", "font input and outputs must be distinct")
+        image_temp, data_temp = temporary_sibling(image_output), temporary_sibling(data_output)
+        async with self._locked([source, image_output, data_output]):
+            try:
+                await self._bridge("export_bitmap_font", {
+                    "source_path": self._process_path(source),
+                    "image_output_path": self._process_path(image_temp),
+                    "data_output_path": self._process_path(data_temp),
+                    "glyphs": [glyph.model_dump() for glyph in glyphs],
+                    "font_name": font_name, "line_height": line_height,
+                    "columns": columns, "padding": padding,
+                    "max_pixels": MAX_CANVAS_PIXELS,
+                })
+                if not image_temp.is_file() or not data_temp.is_file():
+                    raise AsepriteMCPError(
+                        "ASEPRITE_FAILED", "bitmap-font outputs were not created"
+                    )
+                publish_file(image_temp, image_output)
+                publish_file(data_temp, data_output)
+            finally:
+                image_temp.unlink(missing_ok=True)
+                data_temp.unlink(missing_ok=True)
+        return BitmapFontResult(
+            image=self._file_result(image_output), data=self._file_result(data_output),
+            glyph_count=len(glyphs), line_height=line_height,
+        )
+
     async def _bridge_mutation(
         self,
         operation: str,
@@ -2056,6 +2536,7 @@ class AsepriteAdapter:
         overwrite: bool,
         expected_source_hash: str | None,
         payload: dict[str, Any],
+        additional_lock_paths: list[Path] | None = None,
     ) -> MutationResult:
         source = self.paths.existing_file(source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS)
         output = self.paths.output_file(
@@ -2074,7 +2555,7 @@ class AsepriteAdapter:
             overwrite,
             expected_source_hash is not None,
         )
-        async with self._locked([source, output]):
+        async with self._locked([source, output, *(additional_lock_paths or [])]):
             source_hash = self._validate_source_hash(source, expected_source_hash)
             try:
                 await self._bridge(

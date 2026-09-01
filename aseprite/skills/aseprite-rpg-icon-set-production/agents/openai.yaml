@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite RPG Icon Set"
+  short_description: "Produce coherent game-ready RPG icon sets"
+  default_prompt: "Use $aseprite-rpg-icon-set-production to design and audit this RPG icon set."

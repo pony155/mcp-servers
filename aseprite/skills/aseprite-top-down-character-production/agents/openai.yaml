@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Top-Down Character"
+  short_description: "Produce directional top-down character animation"
+  default_prompt: "Use $aseprite-top-down-character-production to build this directional top-down character."

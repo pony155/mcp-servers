@@ -191,6 +191,30 @@ bridge request payloads are not logged.
 | `aseprite_generate_collision_masks` | Derive bounds or component rectangles from alpha. | No |
 | `aseprite_batch_export` | Run bounded sprite-sheet exports independently. | Yes |
 | `aseprite_validate_asset_set` | Validate a bounded set and cross-asset consistency. | No |
+| `aseprite_merge_layers` | Merge one layer downward or flatten an output revision. | Yes |
+| `aseprite_export_frames` | Export explicit frames to explicit PNG paths. | Yes |
+| `aseprite_import_frames` | Insert or append same-size PNG files as frames. | Yes |
+| `aseprite_render_tilemap_preview` | Return an inline preview of explicit tile cells. | No |
+| `aseprite_edit_grid` | Set sprite grid origin and cell dimensions. | Yes |
+| `aseprite_edit_blend_modes` | Set validated blend modes on exact layer paths. | Yes |
+| `aseprite_edit_animation_events` | Manage structured frame-event metadata. | Yes |
+| `aseprite_preview_nine_slice` | Preview a named nine-slice at a target size. | No |
+| `aseprite_edit_cels` | Move, fade, reorder, unlink, or remove exact cels. | Yes |
+| `aseprite_generate_inbetweens` | Insert bounded cel tweens between approved endpoints. | Yes |
+| `aseprite_palette_cycle` | Rotate indexed-color entries across an existing frame range. | Yes |
+| `aseprite_preview_onion_skin` | Preview surrounding frames with directional tinting. | No |
+| `aseprite_select_by_color` | Build a document selection from matching colors. | Yes |
+| `aseprite_create_tileset_from_sheet` | Slice an image-layer sheet into a named tileset. | Yes |
+| `aseprite_validate_pixel_art` | Check alpha, palette, color-count, and isolated-pixel rules. | No |
+| `aseprite_validate_loop_transition` | Check pixel and timing continuity at loop endpoints. | No |
+| `aseprite_inspect_tile_metadata` | Read scalar properties from a tileset and selected tiles. | No |
+| `aseprite_edit_tile_metadata` | Set or remove scalar tileset and tile properties. | Yes |
+| `aseprite_edit_color_space` | Assign or convert sRGB and authorized ICC profiles. | Yes |
+| `aseprite_retime_animation` | Retime all frames or one tag to a deterministic duration. | Yes |
+| `aseprite_bake_tag_direction` | Materialize directional tag playback as appended frames. | Yes |
+| `aseprite_generate_motion_report` | Measure bounds, centroid, velocity, and acceleration. | No |
+| `aseprite_generate_collision_polygons` | Trace simplified outer contours from sprite alpha. | No |
+| `aseprite_export_bitmap_font` | Export explicit glyphs as a PNG atlas and JSON metrics. | Yes |
 
 Frame indices are zero-based. Layer selectors are exact hierarchy paths such as `Character/Outline`.
 
@@ -292,6 +316,15 @@ layer. Batch export reports each job independently and does not roll back alread
 Asset-set validation applies one export profile per document and can additionally require matching
 dimensions and color modes across the set.
 
+Layer merging supports an exact `merge_down` target or whole-document flattening. Frame interchange
+uses explicit PNG paths and requires imported images to match the existing canvas. Grid bounds and
+validated non-group blend modes are stored in editable document revisions.
+
+Animation events are stored as structured JSON in the `mcp.animation_events` sprite property and
+are returned by `aseprite_inspect_sprite`. Tilemap previews compose explicit tile cells without
+editing the source. Nine-slice previews preserve fixed corners and borders while nearest-neighbor
+scaling the center and edge regions into a bounded inline PNG.
+
 ### Sprite-production skill
 
 Distributable Codex skills are under [`skills`](skills):
@@ -316,6 +349,24 @@ Distributable Codex skills are under [`skills`](skills):
 - `aseprite-accessibility-review` for contrast, color, and motion review.
 - `aseprite-atlas-production` for deterministic multi-asset atlas workflows.
 - `aseprite-directional-animation` for consistent four-way or eight-way animation.
+- `aseprite-platformer-character-production` for controller-aligned platformer state sets.
+- `aseprite-top-down-character-production` for directional top-down characters and equipment.
+- `aseprite-bitmap-font-production` for grid-aligned glyph assets and coverage review.
+- `aseprite-nine-slice-ui-production` for scalable pixel UI with multi-size previews.
+- `aseprite-animation-event-authoring` for gameplay and audio frame triggers.
+- `aseprite-release-asset-audit` for final validation, comparison, and packaging review.
+- `aseprite-palette-cycle-production` for indexed ambient and effects animation.
+- `aseprite-pixel-art-restoration` for conservative artifact and palette cleanup.
+- `aseprite-animation-cleanup` for timing, jitter, inbetween, and seam correction.
+- `aseprite-rpg-icon-set-production` for coherent inventory and ability icon families.
+- `aseprite-portrait-expression-production` for identity-stable dialogue portrait variants.
+- `aseprite-looping-background-production` for temporal and spatial background loops.
+- `aseprite-tile-metadata-authoring` for engine-facing terrain and collision properties.
+- `aseprite-color-managed-export` for sRGB and ICC-aware asset handoff.
+- `aseprite-modular-character-production` for aligned paper-doll and equipment parts.
+- `aseprite-collision-shape-authoring` for stable rectangle and polygon geometry.
+- `aseprite-cutscene-animation-production` for timed, event-driven sequences.
+- `aseprite-retro-hardware-constraint-production` for verified platform budgets.
 
 Copy the desired directories into your Codex skills directory (normally `$CODEX_HOME/skills`) and
 restart Codex to make them available.

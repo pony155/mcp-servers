@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Release Asset Audit"
+  short_description: "Audit validate compare and package release assets"
+  default_prompt: "Use $aseprite-release-asset-audit to perform a final release audit of these sprite assets."

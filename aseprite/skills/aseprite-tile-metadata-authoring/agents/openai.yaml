@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Tile Metadata"
+  short_description: "Author engine-facing tileset and tile properties"
+  default_prompt: "Use $aseprite-tile-metadata-authoring to define and verify this tile metadata."

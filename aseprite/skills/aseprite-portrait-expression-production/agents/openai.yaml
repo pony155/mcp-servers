@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Portrait Expressions"
+  short_description: "Create identity-consistent portrait variants"
+  default_prompt: "Use $aseprite-portrait-expression-production to create this expression set."

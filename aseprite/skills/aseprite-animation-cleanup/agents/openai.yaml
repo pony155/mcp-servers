@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Animation Cleanup"
+  short_description: "Clean timing, jitter, pixels, and loop seams"
+  default_prompt: "Use $aseprite-animation-cleanup to diagnose and clean this animation."
