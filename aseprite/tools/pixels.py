@@ -22,11 +22,11 @@ from .inputs import ExpectedSourceHash, Overwrite, SpriteOutputPath, SpriteSourc
 
 
 def register_pixels_tools(
-    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled: bool
+    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled_tools: frozenset[str]
 ) -> int:
     """Register pixels tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "pixels", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "pixels", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_set_pixels(

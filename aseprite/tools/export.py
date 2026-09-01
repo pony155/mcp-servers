@@ -27,11 +27,11 @@ from .inputs import OutputPath, Overwrite, SourcePath
 
 
 def register_export_tools(
-    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled: bool
+    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled_tools: frozenset[str]
 ) -> int:
     """Register export tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "export", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "export", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_render(

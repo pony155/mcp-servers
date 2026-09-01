@@ -22,11 +22,11 @@ from .inputs import ExpectedSourceHash, Overwrite, SourcePath, SpriteOutputPath,
 
 
 def register_documents_tools(
-    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled: bool
+    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled_tools: frozenset[str]
 ) -> int:
     """Register documents tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "documents", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "documents", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_create_sprite(

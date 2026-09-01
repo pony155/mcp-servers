@@ -20,11 +20,11 @@ from .inputs import ExpectedSourceHash, Overwrite, SpriteOutputPath, SpriteSourc
 
 
 def register_animation_tools(
-    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled: bool
+    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled_tools: frozenset[str]
 ) -> int:
     """Register animation tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "animation", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "animation", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_create_animation(

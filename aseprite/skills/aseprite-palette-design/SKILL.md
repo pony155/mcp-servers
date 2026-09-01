@@ -1,6 +1,6 @@
 ---
 name: aseprite-palette-design
-description: Design, apply, and review compact role-based palettes for Aseprite pixel art. Use when reducing colors, establishing ramps, improving contrast, creating variants, or converting an asset to indexed color.
+description: Design and manage Aseprite palettes, indexed conversion, controlled color variants, palette cycles, accessibility, and color-managed export. Use when color roles or delivery behavior must remain consistent across assets.
 ---
 
 # Aseprite Palette Design
@@ -19,3 +19,5 @@ Use this workflow:
 6. Validate and report lost distinctions, transparency handling, and final palette size.
 
 Avoid dithering on small sprites unless it improves a specifically reviewed gradient. Palette application does not support grayscale documents; convert an output copy to RGB first when necessary.
+
+For variants, preserve material-role separation and verify silhouettes on intended backgrounds. For palette cycles, reserve stable index ranges and validate every rotated frame. For color-managed delivery, record the assigned or converted color space and keep ICC decisions separate from artistic palette remapping.

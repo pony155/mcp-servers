@@ -29,11 +29,11 @@ from .inputs import ExpectedSourceHash, OutputPath, Overwrite, SpriteOutputPath,
 
 
 def register_combat_tools(
-    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled: bool
+    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled_tools: frozenset[str]
 ) -> int:
     """Register combat-authoring tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "combat", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "combat", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_edit_combat_boxes(

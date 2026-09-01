@@ -37,7 +37,7 @@ class Settings:
     execution_mode: ExecutionMode = "auto"
     bridge_temp_root: Path | None = None
     log_level: str = "INFO"
-    tool_profiles: tuple[str, ...] = ("full",)
+    tool_profiles: tuple[str, ...] = ("sprite-authoring",)
 
 
 def _common_aseprite_paths() -> tuple[Path, ...]:
@@ -175,7 +175,7 @@ def parse_settings(argv: list[str] | None = None) -> Settings:
         action="append",
         choices=TOOL_PROFILES,
         default=None,
-        help="Expose a capability profile; repeat to combine profiles (default: full)",
+        help="Expose a curated capability profile; repeat to combine profiles (default: sprite-authoring)",
     )
     args = parser.parse_args(argv)
     if args.timeout_seconds > MAX_TIMEOUT_SECONDS:
@@ -189,7 +189,7 @@ def parse_settings(argv: list[str] | None = None) -> Settings:
         args.tool_profile if args.tool_profile is not None else _environment_tool_profiles()
     )
     if not requested_profiles:
-        requested_profiles = ["full"]
+        requested_profiles = ["sprite-authoring"]
     invalid_profiles = [profile for profile in requested_profiles if profile not in TOOL_PROFILES]
     if invalid_profiles:
         parser.error(f"invalid tool profile: {invalid_profiles[0]}")

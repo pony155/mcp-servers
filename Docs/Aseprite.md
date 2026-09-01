@@ -211,7 +211,7 @@ Configuration precedence should be command-line argument, environment variable, 
 | Diagnostic capture | `--max-capture-bytes <n>` | `ASEPRITE_MCP_MAX_CAPTURE_BYTES` | Caps captured process and bridge output. |
 | Execution mode | `--execution-mode <mode>` | `ASEPRITE_MCP_EXECUTION_MODE` | `auto`, `native`, or `wsl-windows`. |
 | Bridge temporary root | `--bridge-temp-root <path>` | `ASEPRITE_MCP_BRIDGE_TEMP_ROOT` | Existing local directory for Lua control files. |
-| Tool profile | `--tool-profile <name>` | `ASEPRITE_MCP_TOOL_PROFILES` | Repeatable profiles; defaults to `full`. |
+| Tool profile | `--tool-profile <name>` | `ASEPRITE_MCP_TOOL_PROFILES` | Repeatable profiles; defaults to `sprite-authoring`; use `full` only when every schema is required. |
 
 Discovery inspects explicit configuration, `PATH`, and documented installation locations. The health tool reports an actionable error when discovery fails. The Lua bridge requires Aseprite 1.3-rc5 or newer because it uses the built-in JSON API; Aseprite 1.3.18.3 with scripting API version 41 is the initial tested version.
 
@@ -418,19 +418,13 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
 All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
 normalized mutation results, and optimistic source-hash guards where a source document is edited.
 
-Versioned Codex skills live under `aseprite/skills`. The general `aseprite-sprite-production` skill
-is complemented by focused animation-review, concept-to-sprite, game-export, tileset-production,
-and palette-design skills. Additional QA, autotile, UI, fighting-game, color-variant, and batch
-pipeline skills orchestrate the narrow MCP tools without adding new file authority.
-Palette-cycle, restoration, animation-cleanup, RPG-icon, portrait-expression, and looping-background
-skills cover the new focused production workflows while retaining the same file-safety boundary.
-Tile-metadata, tilemap-level, color-managed export, modular-character, modular-variant,
-shared-library, document-optimization, collision-shape, cutscene, and retro-hardware
-skills add engine-specialized workflows without expanding the MCP server's authority.
-Beat-'em-up character, combat-authoring, enemy-roster, and stage skills connect animation,
-metadata, validation, tilemap, and export workflows around a single manifest contract.
-Boss, weapon-and-pickup, combat-VFX, stage-gameplay, engine-export, and combat-readability skills
-cover specialized production and review without changing filesystem authority.
+Versioned Codex skills live under `aseprite/skills`. The catalog exposes 24 canonical workflows
+grouped into foundation, animation, beat-'em-up, color and QA, export, world-building, and UI
+families. Broader canonical skills accept explicit modes: for example, character-animation-set
+covers directional, platformer, top-down, fighting, and modular variants; game-export covers atlas,
+collision, engine-profile, batch, and release-audit work. Historical narrow skill names remain as
+deprecated aliases, so existing prompts keep working without presenting 52 overlapping choices.
+Skills orchestrate the narrow MCP tools without expanding filesystem or process authority.
 
 ## 9. Resources
 

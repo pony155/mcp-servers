@@ -123,25 +123,28 @@ Repeat `--allow-root` to authorize more than one directory. The equivalent envir
 
 ## Tool profiles
 
-The default `full` profile exposes every tool and preserves existing client behavior. Smaller
+The default `sprite-authoring` profile exposes a curated 30-tool surface. All 99 atomic tools stay
+available internally; choose `full` only for development, auditing, or unusual workflows. Focused
 profiles reduce the schemas placed in an MCP client's context:
 
 | Profile | Intended surface |
 | --- | --- |
 | `core` | Health and normalized sprite inspection. |
-| `sprite` | General document, pixel, palette, preview, and export work. |
-| `animation` | Sprite tools plus animation editing, review, and validation. |
-| `tiles` | Sprite tools plus tilesets, tilemaps, metadata, and validation. |
-| `export` | Inspection plus render and export tools. |
-| `qa` | Inspection plus read-only comparison and validation tools. |
-| `combat` | Core inspection plus beat-'em-up combat metadata, preview, validation, and manifest tools. |
+| `sprite-authoring` | Focused document, pixel, palette, preview, and sheet-export work. |
+| `animation-authoring` | Focused frame, tag, timing, motion-review, and animation-export work. |
+| `combat-authoring` | Character animation plus beat-'em-up metadata, overlays, validation, and bundles. |
+| `stage-authoring` | Tilesets, tilemaps, stage zones, previews, and stage validation. |
+| `export-qa` | Rendering, packing, comparisons, collision generation, validation, and release checks. |
 | `full` | Every registered tool. |
+
+The legacy names `sprite`, `animation`, `tiles`, `export`, `qa`, and `combat` remain accepted as
+aliases for the corresponding focused profiles.
 
 Repeat `--tool-profile` to combine profiles. Core tools are always available:
 
 ```console
 python main.py --allow-root /path/to/sprites \
-  --tool-profile animation --tool-profile tiles
+  --tool-profile animation-authoring --tool-profile stage-authoring
 ```
 
 Profiles affect tool discovery only. They do not broaden allowed roots, overwrite permission, or
@@ -160,6 +163,13 @@ python aseprite/tools/generate_catalog.py
 Common path, overwrite, and optimistic-concurrency parameter schemas live in `tools/inputs.py`.
 New tools must also receive an explicit policy in `capabilities.py`; unclassified tools are rejected
 during server construction and catalog generation.
+
+## Skill catalog
+
+The skill catalog contains 24 canonical workflows. Older overlapping skill names remain documented
+as deprecated aliases that route to a canonical skill. Use [`skills/CATALOG.md`](skills/CATALOG.md)
+for discovery and [`skills/catalog.json`](skills/catalog.json) for machine-readable routing. This
+keeps specialized guidance available without presenting 52 competing canonical triggers.
 
 ## Logging
 

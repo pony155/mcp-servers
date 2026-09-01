@@ -25,11 +25,11 @@ from .inputs import Overwrite, SourcePath
 
 
 def register_validation_tools(
-    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled: bool
+    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled_tools: frozenset[str]
 ) -> int:
     """Register validation tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "validation", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "validation", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_validate_animation(

@@ -1,6 +1,6 @@
 ---
 name: aseprite-animation-review
-description: Review Aseprite pixel-art animations for timing, motion, visual consistency, duplicate or empty frames, baseline drift, and export readiness. Use when evaluating or correcting an existing animation rather than creating its initial art direction.
+description: Review and clean Aseprite animations for timing, jitter, arcs, continuity, duplicate frames, baseline drift, loop seams, and export readiness. Use after the main motion and art direction exist.
 ---
 
 # Aseprite Animation Review
@@ -14,3 +14,5 @@ Inspect the document before judging it. Use its frame durations, tags, layers, a
 5. When correction is requested, make small output revisions using the narrow edit tools, preview again, and preserve the source with hash guards.
 
 For idle loops, prioritize foot-baseline stability, restrained volume changes, a clean last-to-first transition, and readable secondary motion. Finish with validation and a concise list of intentional remaining warnings.
+
+When cleanup is requested, distinguish cadence defects from drawing defects. Retime before redrawing when durations are the cause; generate inbetweens only between approved endpoints; preserve frame events when indexes change; and use motion reports plus adjacent-frame comparisons to verify arcs and volume after correction.

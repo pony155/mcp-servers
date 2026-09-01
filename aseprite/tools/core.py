@@ -16,11 +16,11 @@ def register_core_tools(
     adapter: AsepriteAdapter,
     registry: CapabilityRegistry,
     *,
-    enabled: bool,
+    enabled_tools: frozenset[str],
 ) -> int:
     """Register core tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "core", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "core", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_health() -> HealthResult:

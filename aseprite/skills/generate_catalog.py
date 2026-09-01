@@ -8,86 +8,90 @@ from pathlib import Path
 
 FAMILIES = {
     "foundation": {
-        "aseprite-concept-to-sprite",
         "aseprite-sprite-production",
     },
     "animation": {
-        "aseprite-animation-cleanup",
         "aseprite-animation-event-authoring",
         "aseprite-animation-review",
         "aseprite-character-animation-set",
         "aseprite-cutscene-animation-production",
-        "aseprite-directional-animation",
-        "aseprite-fighting-game-animation",
         "aseprite-looping-background-production",
         "aseprite-modular-character-production",
-        "aseprite-platformer-character-production",
         "aseprite-portrait-expression-production",
-        "aseprite-top-down-character-production",
         "aseprite-vfx-production",
     },
     "color-and-qa": {
-        "aseprite-accessibility-review",
-        "aseprite-color-managed-export",
-        "aseprite-color-variant-production",
-        "aseprite-palette-cycle-production",
         "aseprite-palette-design",
         "aseprite-pixel-art-qa",
-        "aseprite-pixel-art-restoration",
         "aseprite-retro-hardware-constraint-production",
-        "aseprite-document-optimization",
     },
     "tiles-and-world": {
-        "aseprite-autotile-authoring",
         "aseprite-environment-prop-production",
-        "aseprite-isometric-tile-production",
-        "aseprite-tile-metadata-authoring",
         "aseprite-tilemap-level-production",
         "aseprite-tileset-production",
     },
     "ui-and-fonts": {
         "aseprite-bitmap-font-production",
-        "aseprite-nine-slice-ui-production",
-        "aseprite-rpg-icon-set-production",
         "aseprite-ui-sprite-production",
     },
     "export-and-pipeline": {
-        "aseprite-atlas-production",
-        "aseprite-batch-asset-pipeline",
-        "aseprite-collision-shape-authoring",
-        "aseprite-engine-export-profile",
         "aseprite-game-export",
-        "aseprite-modular-variant-export",
-        "aseprite-release-asset-audit",
         "aseprite-shared-asset-library-production",
     },
     "beat-em-up": {
         "aseprite-beat-em-up-character-production",
         "aseprite-beat-em-up-combat-authoring",
-        "aseprite-beat-em-up-boss-production",
-        "aseprite-beat-em-up-combat-readability-review",
-        "aseprite-beat-em-up-combat-vfx-production",
         "aseprite-beat-em-up-engine-export",
-        "aseprite-beat-em-up-enemy-roster-production",
         "aseprite-beat-em-up-stage-production",
-        "aseprite-beat-em-up-stage-gameplay-authoring",
         "aseprite-beat-em-up-weapon-and-pickup-production",
     },
 }
 
+ALIASES = {
+    "aseprite-accessibility-review": "aseprite-pixel-art-qa",
+    "aseprite-animation-cleanup": "aseprite-animation-review",
+    "aseprite-atlas-production": "aseprite-game-export",
+    "aseprite-autotile-authoring": "aseprite-tileset-production",
+    "aseprite-batch-asset-pipeline": "aseprite-game-export",
+    "aseprite-beat-em-up-boss-production": "aseprite-beat-em-up-character-production",
+    "aseprite-beat-em-up-combat-readability-review": "aseprite-beat-em-up-combat-authoring",
+    "aseprite-beat-em-up-combat-vfx-production": "aseprite-beat-em-up-weapon-and-pickup-production",
+    "aseprite-beat-em-up-enemy-roster-production": "aseprite-beat-em-up-character-production",
+    "aseprite-beat-em-up-stage-gameplay-authoring": "aseprite-beat-em-up-stage-production",
+    "aseprite-collision-shape-authoring": "aseprite-game-export",
+    "aseprite-color-managed-export": "aseprite-palette-design",
+    "aseprite-color-variant-production": "aseprite-palette-design",
+    "aseprite-concept-to-sprite": "aseprite-sprite-production",
+    "aseprite-directional-animation": "aseprite-character-animation-set",
+    "aseprite-document-optimization": "aseprite-pixel-art-qa",
+    "aseprite-engine-export-profile": "aseprite-game-export",
+    "aseprite-fighting-game-animation": "aseprite-character-animation-set",
+    "aseprite-isometric-tile-production": "aseprite-tileset-production",
+    "aseprite-modular-variant-export": "aseprite-shared-asset-library-production",
+    "aseprite-nine-slice-ui-production": "aseprite-ui-sprite-production",
+    "aseprite-palette-cycle-production": "aseprite-palette-design",
+    "aseprite-pixel-art-restoration": "aseprite-pixel-art-qa",
+    "aseprite-platformer-character-production": "aseprite-character-animation-set",
+    "aseprite-release-asset-audit": "aseprite-game-export",
+    "aseprite-rpg-icon-set-production": "aseprite-ui-sprite-production",
+    "aseprite-tile-metadata-authoring": "aseprite-tileset-production",
+    "aseprite-top-down-character-production": "aseprite-character-animation-set",
+}
+
 PROFILE_BY_FAMILY = {
-    "foundation": "sprite",
-    "animation": "animation",
-    "color-and-qa": "qa",
-    "tiles-and-world": "tiles",
-    "ui-and-fonts": "sprite",
-    "export-and-pipeline": "export",
-    "beat-em-up": "combat",
+    "foundation": "sprite-authoring",
+    "animation": "animation-authoring",
+    "color-and-qa": "export-qa",
+    "tiles-and-world": "stage-authoring",
+    "ui-and-fonts": "sprite-authoring",
+    "export-and-pipeline": "export-qa",
+    "beat-em-up": "combat-authoring",
 }
 
 PROFILE_BY_SKILL = {
-    "aseprite-document-optimization": "animation",
-    "aseprite-shared-asset-library-production": "sprite",
+    "aseprite-palette-design": "sprite-authoring",
+    "aseprite-shared-asset-library-production": "sprite-authoring",
+    "aseprite-beat-em-up-stage-production": "stage-authoring",
 }
 
 
@@ -114,16 +118,19 @@ def main() -> None:
         path for path in root.iterdir() if path.is_dir() and (path / "SKILL.md").is_file()
     )
     names = {path.name for path in directories}
-    if names != set(family_by_skill):
+    expected_names = set(family_by_skill) | set(ALIASES)
+    if names != expected_names:
         raise ValueError(
-            f"skill family assignment mismatch: unassigned={names-set(family_by_skill)} "
-            f"missing={set(family_by_skill)-names}"
+            f"skill assignment mismatch: unassigned={names-expected_names} "
+            f"missing={expected_names-names}"
         )
     entries = []
     for directory in directories:
         name, description = frontmatter(directory / "SKILL.md")
         if name != directory.name:
             raise ValueError(f"skill name does not match directory: {directory}")
+        if name in ALIASES:
+            continue
         family = family_by_skill[name]
         entries.append(
             {
@@ -136,11 +143,53 @@ def main() -> None:
                 "path": f"{name}/SKILL.md",
             }
         )
-    output = {"schema_version": 1, "skill_count": len(entries), "skills": entries}
+    aliases = [
+        {
+            "name": name,
+            "canonical_name": canonical_name,
+            "deprecated": True,
+            "path": f"{name}/SKILL.md",
+        }
+        for name, canonical_name in sorted(ALIASES.items())
+    ]
+    output = {
+        "schema_version": 2,
+        "skill_count": len(entries),
+        "alias_count": len(aliases),
+        "skills": entries,
+        "aliases": aliases,
+    }
     (root / "catalog.json").write_text(
         json.dumps(output, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
         newline="\n",
+    )
+    lines = [
+        "# Aseprite skill catalog",
+        "",
+        "Generated by `python aseprite/skills/generate_catalog.py`. Do not edit manually.",
+        "",
+        f"Canonical skills: **{len(entries)}**. Deprecated aliases: **{len(aliases)}**.",
+        "",
+        "## Canonical skills",
+        "",
+        "| Skill | Family | Tool profile | Description |",
+        "| --- | --- | --- | --- |",
+    ]
+    for entry in entries:
+        description = str(entry["description"]).replace("|", "\\|")
+        lines.append(
+            f"| `{entry['name']}` | {entry['family']} | "
+            f"`{entry['recommended_tool_profile']}` | {description} |"
+        )
+    lines.extend([
+        "", "## Deprecated aliases", "",
+        "| Alias | Canonical skill |", "| --- | --- |",
+    ])
+    for alias in aliases:
+        lines.append(f"| `{alias['name']}` | `{alias['canonical_name']}` |")
+    (root / "CATALOG.md").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8", newline="\n"
     )
 
 

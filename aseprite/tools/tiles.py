@@ -29,11 +29,11 @@ from .inputs import (
 
 
 def register_tiles_tools(
-    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled: bool
+    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled_tools: frozenset[str]
 ) -> int:
     """Register tiles tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "tiles", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "tiles", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_edit_tileset(

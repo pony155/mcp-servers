@@ -11,4 +11,4 @@ Separate far background, architecture, gameplay floor, foreground occluders, pro
 
 Build at least one representative encounter slice early and render a tilemap preview at gameplay scale. Check that enemy silhouettes remain readable at the top and bottom of the lane, foreground objects do not hide combat cues, and scroll seams or parallax repeats are not conspicuous. Keep destructible states and hazard animations as tagged assets with explicit events.
 
-After the art layout stabilizes, route gameplay-region work through `aseprite-beat-em-up-stage-gameplay-authoring`. Validate tilesets, stage gameplay, and export profiles before publishing. Keep tilemap, prop, and gameplay contracts separable so layout changes do not require reauthoring unrelated character assets.
+After the art layout stabilizes, author walkable lanes, camera bounds, encounter gates, spawns, exits, hazards, pits, and foreground zones with explicit identifiers and ordering. Validate tilesets, stage gameplay, and export profiles before publishing. Keep tilemap, prop, and gameplay contracts separable so layout changes do not require reauthoring unrelated character assets.

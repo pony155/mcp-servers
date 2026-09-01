@@ -1,6 +1,6 @@
 ---
 name: aseprite-tileset-production
-description: Build and refine bounded Aseprite tilesets for tile-based games. Use when creating tile dimensions, reusable tile images, seamless variants, palette consistency, or tileset metadata; do not use for ordinary character animation.
+description: Build Aseprite tilesets including ordinary, autotile, isometric, transition, and metadata-driven variants. Use when tile geometry, adjacency, reuse, projection, palettes, or engine properties must remain consistent.
 ---
 
 # Aseprite Tileset Production
@@ -17,3 +17,5 @@ Use `aseprite_edit_tileset` for tileset structure and tile pixels. Build in this
 Check opposite edges at exact pixel level and preview repeated arrangements where possible. Reuse colors and clusters across neighboring tiles. Avoid features that terminate at an edge unless a complementary tile exists.
 
 Keep each revision in a new document, use source hashes, and report tile dimensions, named tileset, modified indices, palette, and any missing adjacency cases.
+
+For autotiles, define the adjacency bit contract before drawing edge and corner combinations. For isometric sets, lock projection, elevation, and shared diamond edges. Store collision, terrain, cost, trigger, or variant semantics as explicit tile metadata rather than inferring them from decorative pixels.

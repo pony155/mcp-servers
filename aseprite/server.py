@@ -8,24 +8,17 @@ from mcp.server import MCPServer
 
 from . import __version__
 from .adapter import AsepriteAdapter
-from .capabilities import CapabilityRegistry, PROFILE_CATEGORIES
+from .capabilities import CapabilityRegistry, PROFILE_TOOL_NAMES, tools_for_profiles
 from .config import Settings
 from .tools import REGISTRARS
 
 logger = logging.getLogger(__name__)
 
-def _selected_categories(profiles: tuple[str, ...]) -> set[str]:
-    selected = {"core"}
-    for profile in profiles:
-        selected.update(PROFILE_CATEGORIES[profile])
-    return selected
-
-
 def build_server(settings: Settings) -> MCPServer:
     """Build a configured server without starting a transport."""
 
-    if set(REGISTRARS) != set(PROFILE_CATEGORIES["full"]):
-        raise RuntimeError("tool registrars and the full capability profile are inconsistent")
+    if not PROFILE_TOOL_NAMES["full"]:
+        raise RuntimeError("the full capability profile cannot be empty")
     logger.info("Building Aseprite MCP server version %s", __version__)
     server = MCPServer(
         "aseprite",
@@ -39,19 +32,18 @@ def build_server(settings: Settings) -> MCPServer:
     )
     adapter = AsepriteAdapter(settings)
     registry = CapabilityRegistry()
-    categories = _selected_categories(settings.tool_profiles)
+    enabled_tools = tools_for_profiles(settings.tool_profiles)
     registered = 0
     for category, registrar in REGISTRARS.items():
         registered += registrar(
             server,
             adapter,
             registry,
-            enabled=category in categories,
+            enabled_tools=enabled_tools,
         )
     logger.info(
-        "Registered %d Aseprite MCP tools profiles=%s categories=%s",
+        "Registered %d Aseprite MCP tools profiles=%s",
         registered,
         ",".join(settings.tool_profiles),
-        ",".join(sorted(categories)),
     )
     return server

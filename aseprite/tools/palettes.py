@@ -17,11 +17,11 @@ from .inputs import ExpectedSourceHash, Overwrite, SpriteOutputPath, SpriteSourc
 
 
 def register_palettes_tools(
-    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled: bool
+    server: MCPServer, adapter: AsepriteAdapter, registry: CapabilityRegistry, *, enabled_tools: frozenset[str]
 ) -> int:
     """Register palettes tools and return the number registered."""
 
-    tools = ToolRegistrar(server, registry, "palettes", enabled=enabled)
+    tools = ToolRegistrar(server, registry, "palettes", enabled_tools=enabled_tools)
 
     @tools.tool()
     async def aseprite_apply_palette(

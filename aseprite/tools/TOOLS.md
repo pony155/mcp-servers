@@ -9,13 +9,14 @@ Total tools: **99**.
 | Profile | Categories | Tools |
 | --- | --- | ---: |
 | `core` | core | 3 |
-| `sprite` | core, documents, export, palettes, pixels | 52 |
-| `animation` | animation, core, documents, export, palettes, pixels, validation | 74 |
-| `tiles` | core, documents, export, palettes, pixels, tiles, validation | 74 |
-| `export` | core, export | 14 |
-| `qa` | core, validation | 14 |
-| `combat` | combat, core | 17 |
+| `sprite-authoring` | core, documents, export, palettes, pixels | 30 |
+| `animation-authoring` | animation, core, documents, export, palettes, pixels, validation | 29 |
+| `combat-authoring` | animation, combat, core, documents, pixels, validation | 30 |
+| `stage-authoring` | combat, core, documents, export, pixels, tiles | 28 |
+| `export-qa` | core, export, tiles, validation | 25 |
 | `full` | animation, combat, core, documents, export, palettes, pixels, tiles, validation | 99 |
+
+Legacy aliases: `sprite` → `sprite-authoring`, `animation` → `animation-authoring`, `tiles` → `stage-authoring`, `export` → `export-qa`, `qa` → `export-qa`, `combat` → `combat-authoring`.
 
 ## Animation
 

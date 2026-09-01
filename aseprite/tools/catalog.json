@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "tool_count": 99,
   "profiles": [
     {
@@ -10,7 +10,7 @@
       "tool_count": 3
     },
     {
-      "name": "sprite",
+      "name": "sprite-authoring",
       "categories": [
         "core",
         "documents",
@@ -18,10 +18,10 @@
         "palettes",
         "pixels"
       ],
-      "tool_count": 52
+      "tool_count": 30
     },
     {
-      "name": "animation",
+      "name": "animation-authoring",
       "categories": [
         "animation",
         "core",
@@ -31,44 +31,41 @@
         "pixels",
         "validation"
       ],
-      "tool_count": 74
+      "tool_count": 29
     },
     {
-      "name": "tiles",
+      "name": "combat-authoring",
       "categories": [
+        "animation",
+        "combat",
+        "core",
+        "documents",
+        "pixels",
+        "validation"
+      ],
+      "tool_count": 30
+    },
+    {
+      "name": "stage-authoring",
+      "categories": [
+        "combat",
         "core",
         "documents",
         "export",
-        "palettes",
         "pixels",
+        "tiles"
+      ],
+      "tool_count": 28
+    },
+    {
+      "name": "export-qa",
+      "categories": [
+        "core",
+        "export",
         "tiles",
         "validation"
       ],
-      "tool_count": 74
-    },
-    {
-      "name": "export",
-      "categories": [
-        "core",
-        "export"
-      ],
-      "tool_count": 14
-    },
-    {
-      "name": "qa",
-      "categories": [
-        "core",
-        "validation"
-      ],
-      "tool_count": 14
-    },
-    {
-      "name": "combat",
-      "categories": [
-        "combat",
-        "core"
-      ],
-      "tool_count": 17
+      "tool_count": 25
     },
     {
       "name": "full",
@@ -86,14 +83,21 @@
       "tool_count": 99
     }
   ],
+  "profile_aliases": {
+    "sprite": "sprite-authoring",
+    "animation": "animation-authoring",
+    "tiles": "stage-authoring",
+    "export": "export-qa",
+    "qa": "export-qa",
+    "combat": "combat-authoring"
+  },
   "tools": [
     {
       "name": "aseprite_analyze_palette",
       "category": "palettes",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
         "full"
       ],
       "mutability": "read",
@@ -105,9 +109,7 @@
       "name": "aseprite_apply_outline",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "write",
@@ -119,9 +121,8 @@
       "name": "aseprite_apply_palette",
       "category": "palettes",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
         "full"
       ],
       "mutability": "write",
@@ -133,7 +134,6 @@
       "name": "aseprite_bake_tag_direction",
       "category": "animation",
       "profiles": [
-        "animation",
         "full"
       ],
       "mutability": "write",
@@ -145,10 +145,7 @@
       "name": "aseprite_batch_export",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -160,9 +157,7 @@
       "name": "aseprite_compare_frames",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -174,9 +169,7 @@
       "name": "aseprite_compare_sprites",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -188,9 +181,7 @@
       "name": "aseprite_convert_color_mode",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "write",
@@ -202,7 +193,8 @@
       "name": "aseprite_copy_cel",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -214,9 +206,6 @@
       "name": "aseprite_copy_layer_tree",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -228,7 +217,8 @@
       "name": "aseprite_create_animation",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -240,9 +230,8 @@
       "name": "aseprite_create_sprite",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -254,7 +243,7 @@
       "name": "aseprite_create_tileset_from_sheet",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -266,9 +255,7 @@
       "name": "aseprite_crop_sprite",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "write",
@@ -280,9 +267,8 @@
       "name": "aseprite_draw_shapes",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -294,9 +280,8 @@
       "name": "aseprite_draw_strokes",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -308,7 +293,7 @@
       "name": "aseprite_edit_action_metadata",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -320,7 +305,8 @@
       "name": "aseprite_edit_animation_events",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -332,9 +318,6 @@
       "name": "aseprite_edit_blend_modes",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -346,7 +329,7 @@
       "name": "aseprite_edit_cancel_windows",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -358,9 +341,9 @@
       "name": "aseprite_edit_cels",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -372,9 +355,6 @@
       "name": "aseprite_edit_color_space",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -386,7 +366,7 @@
       "name": "aseprite_edit_combat_boxes",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -398,7 +378,7 @@
       "name": "aseprite_edit_frame_anchors",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -410,7 +390,8 @@
       "name": "aseprite_edit_frames",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -422,9 +403,7 @@
       "name": "aseprite_edit_grid",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -436,9 +415,10 @@
       "name": "aseprite_edit_layers",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -450,9 +430,6 @@
       "name": "aseprite_edit_palette_entries",
       "category": "palettes",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -464,9 +441,8 @@
       "name": "aseprite_edit_properties",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -478,7 +454,7 @@
       "name": "aseprite_edit_root_motion",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -490,9 +466,7 @@
       "name": "aseprite_edit_selection",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "write",
@@ -504,9 +478,7 @@
       "name": "aseprite_edit_slices",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "write",
@@ -518,7 +490,7 @@
       "name": "aseprite_edit_stage_gameplay_zones",
       "category": "combat",
       "profiles": [
-        "combat",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -530,7 +502,8 @@
       "name": "aseprite_edit_tags",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -542,7 +515,7 @@
       "name": "aseprite_edit_tile_metadata",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -554,7 +527,7 @@
       "name": "aseprite_edit_tilemap",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -566,7 +539,7 @@
       "name": "aseprite_edit_tileset",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -578,7 +551,7 @@
       "name": "aseprite_export_beat_em_up_bundle",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -590,10 +563,7 @@
       "name": "aseprite_export_bitmap_font",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -605,7 +575,7 @@
       "name": "aseprite_export_combat_manifest",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -617,10 +587,8 @@
       "name": "aseprite_export_frames",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "animation-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -632,9 +600,6 @@
       "name": "aseprite_export_palette",
       "category": "palettes",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -646,10 +611,10 @@
       "name": "aseprite_export_sprite_sheet",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "sprite-authoring",
+        "animation-authoring",
+        "stage-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -661,7 +626,7 @@
       "name": "aseprite_export_tilemap_data",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -673,7 +638,7 @@
       "name": "aseprite_export_tileset",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -685,10 +650,7 @@
       "name": "aseprite_extract_slices",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -700,9 +662,8 @@
       "name": "aseprite_fill_region",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -714,9 +675,7 @@
       "name": "aseprite_generate_collision_masks",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -728,9 +687,7 @@
       "name": "aseprite_generate_collision_polygons",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -742,7 +699,7 @@
       "name": "aseprite_generate_inbetweens",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
         "full"
       ],
       "mutability": "write",
@@ -754,9 +711,9 @@
       "name": "aseprite_generate_motion_report",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "animation-authoring",
+        "combat-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -769,12 +726,11 @@
       "category": "core",
       "profiles": [
         "core",
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
-        "qa",
-        "combat",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
+        "stage-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -786,9 +742,6 @@
       "name": "aseprite_import_frames",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -800,9 +753,6 @@
       "name": "aseprite_import_palette",
       "category": "palettes",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -814,9 +764,9 @@
       "name": "aseprite_import_sprite_sheet",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -828,7 +778,7 @@
       "name": "aseprite_import_tilemap_data",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -840,9 +790,9 @@
       "name": "aseprite_inspect_cels",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "animation-authoring",
+        "combat-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -854,9 +804,7 @@
       "name": "aseprite_inspect_properties",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "read",
@@ -869,12 +817,11 @@
       "category": "core",
       "profiles": [
         "core",
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
-        "qa",
-        "combat",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
+        "stage-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -886,7 +833,7 @@
       "name": "aseprite_inspect_tile_metadata",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "read",
@@ -898,7 +845,7 @@
       "name": "aseprite_inspect_tilesets",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "read",
@@ -911,12 +858,11 @@
       "category": "core",
       "profiles": [
         "core",
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
-        "qa",
-        "combat",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
+        "stage-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -928,9 +874,6 @@
       "name": "aseprite_merge_layers",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -942,7 +885,6 @@
       "name": "aseprite_optimize_linked_cels",
       "category": "animation",
       "profiles": [
-        "animation",
         "full"
       ],
       "mutability": "write",
@@ -954,10 +896,7 @@
       "name": "aseprite_pack_atlas",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -969,9 +908,6 @@
       "name": "aseprite_palette_cycle",
       "category": "palettes",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -983,10 +919,9 @@
       "name": "aseprite_preview",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "sprite-authoring",
+        "stage-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -998,7 +933,8 @@
       "name": "aseprite_preview_animation",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1010,7 +946,7 @@
       "name": "aseprite_preview_combat_animation",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1022,7 +958,7 @@
       "name": "aseprite_preview_combat_overlay",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1034,10 +970,6 @@
       "name": "aseprite_preview_nine_slice",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
         "full"
       ],
       "mutability": "read",
@@ -1049,7 +981,7 @@
       "name": "aseprite_preview_onion_skin",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1061,9 +993,6 @@
       "name": "aseprite_quantize_palette",
       "category": "palettes",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -1075,9 +1004,7 @@
       "name": "aseprite_read_composited_pixels",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1089,9 +1016,10 @@
       "name": "aseprite_read_pixels",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
+        "stage-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1103,10 +1031,7 @@
       "name": "aseprite_render",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -1118,10 +1043,8 @@
       "name": "aseprite_render_contact_sheet",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "animation-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -1133,10 +1056,8 @@
       "name": "aseprite_render_layer_variants",
       "category": "export",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
-        "export",
+        "stage-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "write",
@@ -1148,7 +1069,7 @@
       "name": "aseprite_render_tilemap_preview",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1160,9 +1081,7 @@
       "name": "aseprite_replace_color",
       "category": "palettes",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1174,9 +1093,8 @@
       "name": "aseprite_resize_canvas",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1188,9 +1106,8 @@
       "name": "aseprite_resize_sprite",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1202,7 +1119,7 @@
       "name": "aseprite_retime_animation",
       "category": "animation",
       "profiles": [
-        "animation",
+        "animation-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1214,9 +1131,6 @@
       "name": "aseprite_select_by_color",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -1228,9 +1142,9 @@
       "name": "aseprite_set_pixel_runs",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1242,9 +1156,7 @@
       "name": "aseprite_set_pixels",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1256,9 +1168,9 @@
       "name": "aseprite_transform_cel",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "animation-authoring",
+        "combat-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1270,9 +1182,8 @@
       "name": "aseprite_transform_selection",
       "category": "pixels",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
+        "sprite-authoring",
+        "stage-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1284,9 +1195,6 @@
       "name": "aseprite_trim_cels",
       "category": "documents",
       "profiles": [
-        "sprite",
-        "animation",
-        "tiles",
         "full"
       ],
       "mutability": "write",
@@ -1298,9 +1206,9 @@
       "name": "aseprite_validate_animation",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "animation-authoring",
+        "combat-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -1312,9 +1220,7 @@
       "name": "aseprite_validate_asset_set",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -1326,7 +1232,7 @@
       "name": "aseprite_validate_character_roster",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1338,7 +1244,7 @@
       "name": "aseprite_validate_combat_action",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1350,7 +1256,7 @@
       "name": "aseprite_validate_combat_set",
       "category": "combat",
       "profiles": [
-        "combat",
+        "combat-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1362,9 +1268,7 @@
       "name": "aseprite_validate_export_profile",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -1376,9 +1280,8 @@
       "name": "aseprite_validate_loop_transition",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "animation-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -1390,9 +1293,7 @@
       "name": "aseprite_validate_pixel_art",
       "category": "validation",
       "profiles": [
-        "animation",
-        "tiles",
-        "qa",
+        "export-qa",
         "full"
       ],
       "mutability": "read",
@@ -1404,7 +1305,7 @@
       "name": "aseprite_validate_stage_gameplay",
       "category": "combat",
       "profiles": [
-        "combat",
+        "stage-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1416,7 +1317,8 @@
       "name": "aseprite_validate_tileset",
       "category": "tiles",
       "profiles": [
-        "tiles",
+        "stage-authoring",
+        "export-qa",
         "full"
       ],
       "mutability": "read",

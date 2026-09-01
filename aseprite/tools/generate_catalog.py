@@ -11,10 +11,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 from aseprite.capabilities import (  # noqa: E402
-    PROFILE_CATEGORIES,
+    PROFILE_ALIASES,
+    PROFILE_TOOL_NAMES,
     READ_TOOL_NAMES,
     WRITE_TOOL_NAMES,
-    profiles_for_category,
+    profiles_for_tool,
     tool_policy,
 )
 
@@ -35,7 +36,7 @@ def discover_tools(root: Path) -> list[dict[str, object]]:
                 {
                     "name": node.name,
                     "category": path.stem,
-                    "profiles": list(profiles_for_category(path.stem)),
+                    "profiles": list(profiles_for_tool(node.name)),
                     "mutability": mutability,
                     "output": output,
                     "requires_aseprite": requires_aseprite,
@@ -70,9 +71,15 @@ def markdown(entries: list[dict[str, object]]) -> str:
         "| Profile | Categories | Tools |",
         "| --- | --- | ---: |",
     ]
-    for profile, categories in PROFILE_CATEGORIES.items():
-        count = sum(entry["category"] in categories for entry in entries)
+    for profile, tools in PROFILE_TOOL_NAMES.items():
+        categories = sorted({
+            str(entry["category"]) for entry in entries if entry["name"] in tools
+        })
+        count = len(tools)
         lines.append(f"| `{profile}` | {', '.join(sorted(categories))} | {count} |")
+    lines.extend(["", "Legacy aliases: " + ", ".join(
+        f"`{alias}` → `{target}`" for alias, target in PROFILE_ALIASES.items()
+    ) + "."])
     for category in sorted({str(entry["category"]) for entry in entries}):
         lines.extend(
             [
@@ -102,14 +109,18 @@ def main() -> None:
         {
             "name": profile,
             "categories": sorted(categories),
-            "tool_count": sum(entry["category"] in categories for entry in entries),
+            "tool_count": len(tools),
         }
-        for profile, categories in PROFILE_CATEGORIES.items()
+        for profile, tools in PROFILE_TOOL_NAMES.items()
+        for categories in [{
+            str(entry["category"]) for entry in entries if entry["name"] in tools
+        }]
     ]
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "tool_count": len(entries),
         "profiles": profiles,
+        "profile_aliases": PROFILE_ALIASES,
         "tools": entries,
     }
     (root / "catalog.json").write_text(
