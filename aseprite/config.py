@@ -10,6 +10,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from .capabilities import TOOL_PROFILES
 from .errors import AsepriteMCPError
 from .interop import ExecutionMode, is_wsl
 
@@ -36,6 +37,7 @@ class Settings:
     execution_mode: ExecutionMode = "auto"
     bridge_temp_root: Path | None = None
     log_level: str = "INFO"
+    tool_profiles: tuple[str, ...] = ("full",)
 
 
 def _common_aseprite_paths() -> tuple[Path, ...]:
@@ -104,6 +106,11 @@ def _environment_roots() -> list[str]:
     return [entry for entry in value.split(os.pathsep) if entry]
 
 
+def _environment_tool_profiles() -> list[str]:
+    value = os.environ.get("ASEPRITE_MCP_TOOL_PROFILES", "")
+    return [entry.strip() for entry in value.split(",") if entry.strip()]
+
+
 def _positive_float(value: str) -> float:
     parsed = float(value)
     if parsed <= 0:
@@ -163,6 +170,13 @@ def parse_settings(argv: list[str] | None = None) -> Settings:
         default=os.environ.get("ASEPRITE_MCP_LOG_LEVEL", "INFO").upper(),
         help="Diagnostic verbosity written to stderr",
     )
+    parser.add_argument(
+        "--tool-profile",
+        action="append",
+        choices=TOOL_PROFILES,
+        default=None,
+        help="Expose a capability profile; repeat to combine profiles (default: full)",
+    )
     args = parser.parse_args(argv)
     if args.timeout_seconds > MAX_TIMEOUT_SECONDS:
         parser.error(f"--timeout-seconds may not exceed {MAX_TIMEOUT_SECONDS:g}")
@@ -170,6 +184,16 @@ def parse_settings(argv: list[str] | None = None) -> Settings:
         parser.error(f"--max-concurrency may not exceed {MAX_CONCURRENCY}")
     if args.max_capture_bytes > MAX_CAPTURE_BYTES:
         parser.error(f"--max-capture-bytes may not exceed {MAX_CAPTURE_BYTES}")
+
+    requested_profiles = (
+        args.tool_profile if args.tool_profile is not None else _environment_tool_profiles()
+    )
+    if not requested_profiles:
+        requested_profiles = ["full"]
+    invalid_profiles = [profile for profile in requested_profiles if profile not in TOOL_PROFILES]
+    if invalid_profiles:
+        parser.error(f"invalid tool profile: {invalid_profiles[0]}")
+    tool_profiles = tuple(dict.fromkeys(requested_profiles))
 
     roots: list[Path] = []
     for raw_root in args.allow_root if args.allow_root is not None else _environment_roots():
@@ -202,4 +226,5 @@ def parse_settings(argv: list[str] | None = None) -> Settings:
         execution_mode=args.execution_mode,
         bridge_temp_root=bridge_temp_root,
         log_level=args.log_level,
+        tool_profiles=tool_profiles,
     )

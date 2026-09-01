@@ -1,0 +1,1169 @@
+{
+  "schema_version": 1,
+  "tool_count": 79,
+  "profiles": [
+    {
+      "name": "core",
+      "categories": [
+        "core"
+      ],
+      "tool_count": 3
+    },
+    {
+      "name": "sprite",
+      "categories": [
+        "core",
+        "documents",
+        "export",
+        "palettes",
+        "pixels"
+      ],
+      "tool_count": 49
+    },
+    {
+      "name": "animation",
+      "categories": [
+        "animation",
+        "core",
+        "documents",
+        "export",
+        "palettes",
+        "pixels",
+        "validation"
+      ],
+      "tool_count": 70
+    },
+    {
+      "name": "tiles",
+      "categories": [
+        "core",
+        "documents",
+        "export",
+        "palettes",
+        "pixels",
+        "tiles",
+        "validation"
+      ],
+      "tool_count": 69
+    },
+    {
+      "name": "export",
+      "categories": [
+        "core",
+        "export"
+      ],
+      "tool_count": 13
+    },
+    {
+      "name": "qa",
+      "categories": [
+        "core",
+        "validation"
+      ],
+      "tool_count": 14
+    },
+    {
+      "name": "full",
+      "categories": [
+        "animation",
+        "core",
+        "documents",
+        "export",
+        "palettes",
+        "pixels",
+        "tiles",
+        "validation"
+      ],
+      "tool_count": 79
+    }
+  ],
+  "tools": [
+    {
+      "name": "aseprite_analyze_palette",
+      "category": "palettes",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Analyze exact color usage, unused entries, and nearby colors."
+    },
+    {
+      "name": "aseprite_apply_outline",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Apply a fixed inside or outside outline to one cel."
+    },
+    {
+      "name": "aseprite_apply_palette",
+      "category": "palettes",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Remap cel colors to the nearest supplied palette colors."
+    },
+    {
+      "name": "aseprite_bake_tag_direction",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Append a forward frame sequence that materializes a tag's playback direction."
+    },
+    {
+      "name": "aseprite_batch_export",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export bounded sprite-sheet jobs independently and report per-job failures."
+    },
+    {
+      "name": "aseprite_compare_frames",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Compare composited frames and optionally write a magenta difference image."
+    },
+    {
+      "name": "aseprite_compare_sprites",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Compare two sprites' structure, metadata, and composited frame pixels."
+    },
+    {
+      "name": "aseprite_convert_color_mode",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Convert a sprite color mode with an explicit bounded dithering choice."
+    },
+    {
+      "name": "aseprite_copy_cel",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Copy or link an existing image cel to another layer/frame location."
+    },
+    {
+      "name": "aseprite_create_animation",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Create an animation with per-frame durations, layer cels, pixels, and tags."
+    },
+    {
+      "name": "aseprite_create_sprite",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Create a bounded Aseprite document with optional initial pixels."
+    },
+    {
+      "name": "aseprite_create_tileset_from_sheet",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Slice one image-layer cel into a named tileset with optional deduplication."
+    },
+    {
+      "name": "aseprite_crop_sprite",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Crop the canvas to visible pixels in selected frames and layers, with padding."
+    },
+    {
+      "name": "aseprite_draw_shapes",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Draw fixed lines, rectangles, and ellipses on one layer/frame."
+    },
+    {
+      "name": "aseprite_draw_strokes",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Draw bounded pencil strokes with explicit points, brush size, and opacity."
+    },
+    {
+      "name": "aseprite_edit_animation_events",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove structured frame events stored in sprite metadata."
+    },
+    {
+      "name": "aseprite_edit_blend_modes",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Apply validated blend modes to exact non-group layer paths."
+    },
+    {
+      "name": "aseprite_edit_cels",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Move, fade, reorder, unlink, or remove exact layer/frame cels."
+    },
+    {
+      "name": "aseprite_edit_color_space",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Assign or convert a document color space using sRGB or an authorized ICC profile."
+    },
+    {
+      "name": "aseprite_edit_frames",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Add, duplicate, remove, or retime frames in sequential operation order."
+    },
+    {
+      "name": "aseprite_edit_grid",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set sprite grid origin and cell dimensions in a new document revision."
+    },
+    {
+      "name": "aseprite_edit_layers",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Add, remove, rename, show, hide, reorder, or regroup layers sequentially."
+    },
+    {
+      "name": "aseprite_edit_palette_entries",
+      "category": "palettes",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set, append, remove, or swap indexed palette entries safely."
+    },
+    {
+      "name": "aseprite_edit_properties",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove scalar user properties on sprite production objects."
+    },
+    {
+      "name": "aseprite_edit_selection",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Replace, combine, clear, or select all of the document selection mask."
+    },
+    {
+      "name": "aseprite_edit_slices",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Create/update frame-specific slices or remove named slices."
+    },
+    {
+      "name": "aseprite_edit_tags",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Create/update or remove animation tags in sequential operation order."
+    },
+    {
+      "name": "aseprite_edit_tile_metadata",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove scalar properties on an exact tileset or tile index."
+    },
+    {
+      "name": "aseprite_edit_tilemap",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Create or edit a tilemap layer using bounded tile-cell records."
+    },
+    {
+      "name": "aseprite_edit_tileset",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Create or rename tilesets and add, remove, or repaint their tiles."
+    },
+    {
+      "name": "aseprite_export_bitmap_font",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export explicit glyph rectangles as a PNG atlas and deterministic JSON metrics."
+    },
+    {
+      "name": "aseprite_export_frames",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export explicit zero-based frames to explicit PNG output paths."
+    },
+    {
+      "name": "aseprite_export_palette",
+      "category": "palettes",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export the first sprite palette to an authorized palette file."
+    },
+    {
+      "name": "aseprite_export_sprite_sheet",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export a PNG sprite sheet and JSON-array frame metadata."
+    },
+    {
+      "name": "aseprite_export_tileset",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export one tileset to a PNG grid and JSON metadata."
+    },
+    {
+      "name": "aseprite_extract_slices",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Render explicitly named slice/frame pairs to explicit PNG output paths."
+    },
+    {
+      "name": "aseprite_fill_region",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Flood-fill a bounded layer/frame region from one coordinate."
+    },
+    {
+      "name": "aseprite_generate_collision_masks",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Derive per-frame collision rectangles from composited or layer alpha."
+    },
+    {
+      "name": "aseprite_generate_collision_polygons",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Trace bounded outer collision contours from composited or layer alpha."
+    },
+    {
+      "name": "aseprite_generate_inbetweens",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Insert bounded tween frames for one cel while preserving the starting frame's layers."
+    },
+    {
+      "name": "aseprite_generate_motion_report",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Measure bounds, centroid, velocity, acceleration, travel, and peak speed."
+    },
+    {
+      "name": "aseprite_health",
+      "category": "core",
+      "profiles": [
+        "core",
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": false,
+      "description": "Check the server configuration and installed Aseprite version without modifying files."
+    },
+    {
+      "name": "aseprite_import_frames",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Append or insert explicit same-size PNG files as frames on one image layer."
+    },
+    {
+      "name": "aseprite_import_palette",
+      "category": "palettes",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Load a supported palette file into a new sprite-document revision."
+    },
+    {
+      "name": "aseprite_import_sprite_sheet",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Import a PNG grid as an editable Aseprite animation with one cel per frame."
+    },
+    {
+      "name": "aseprite_inspect_cels",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Inspect cel geometry, opacity, z-index, image identity, and linked groups."
+    },
+    {
+      "name": "aseprite_inspect_sprite",
+      "category": "core",
+      "profiles": [
+        "core",
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Inspect sprite dimensions, frames, layers, tags, slices, and palettes."
+    },
+    {
+      "name": "aseprite_inspect_tile_metadata",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Read scalar properties and user metadata from a tileset and selected tiles."
+    },
+    {
+      "name": "aseprite_inspect_tilesets",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Inspect tileset dimensions/counts and tilemap layer paths."
+    },
+    {
+      "name": "aseprite_list_capabilities",
+      "category": "core",
+      "profiles": [
+        "core",
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": false,
+      "description": "List supported tools, profiles, mutability, output kinds, and availability."
+    },
+    {
+      "name": "aseprite_merge_layers",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Merge one layer downward or flatten all/visible layers in an output revision."
+    },
+    {
+      "name": "aseprite_pack_atlas",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Pack up to 64 authorized sprite files into a PNG atlas and JSON metadata."
+    },
+    {
+      "name": "aseprite_palette_cycle",
+      "category": "palettes",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Rotate selected indexed-color entries progressively across an existing frame range."
+    },
+    {
+      "name": "aseprite_preview",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "inline-image",
+      "requires_aseprite": true,
+      "description": "Return an inline PNG preview of one frame or a sprite sheet."
+    },
+    {
+      "name": "aseprite_preview_animation",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "inline-image",
+      "requires_aseprite": true,
+      "description": "Return an inline animated GIF for all frames or one tag."
+    },
+    {
+      "name": "aseprite_preview_nine_slice",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "inline-image",
+      "requires_aseprite": true,
+      "description": "Return an inline PNG showing a named nine-slice at a requested size."
+    },
+    {
+      "name": "aseprite_preview_onion_skin",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "inline-image",
+      "requires_aseprite": true,
+      "description": "Return a PNG with earlier frames tinted red and later frames tinted blue."
+    },
+    {
+      "name": "aseprite_quantize_palette",
+      "category": "palettes",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Create a bounded palette and convert a document to indexed color."
+    },
+    {
+      "name": "aseprite_read_composited_pixels",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Read final visible frame pixels as compact row-based RGBA runs."
+    },
+    {
+      "name": "aseprite_read_pixels",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Read a bounded rectangle as compact row-based #RRGGBBAA runs."
+    },
+    {
+      "name": "aseprite_render",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Render one frame to PNG or a frame/tag selection to GIF."
+    },
+    {
+      "name": "aseprite_render_contact_sheet",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Render every frame into a labelled PNG review grid."
+    },
+    {
+      "name": "aseprite_render_tilemap_preview",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "inline-image",
+      "requires_aseprite": true,
+      "description": "Return an inline PNG for an explicit arrangement of tileset cells."
+    },
+    {
+      "name": "aseprite_replace_color",
+      "category": "palettes",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Replace a color across selected image layers and frames."
+    },
+    {
+      "name": "aseprite_resize_canvas",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Resize the transparent canvas without scaling sprite artwork."
+    },
+    {
+      "name": "aseprite_resize_sprite",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Scale an Aseprite document and its cels using nearest-neighbor pixel scaling."
+    },
+    {
+      "name": "aseprite_retime_animation",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Retime all frames or one tag to an FPS, total duration, or scale factor."
+    },
+    {
+      "name": "aseprite_select_by_color",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Build a document selection from matching layer or composited frame colors."
+    },
+    {
+      "name": "aseprite_set_pixel_runs",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Write horizontal RGBA pixel runs efficiently to one layer and frame."
+    },
+    {
+      "name": "aseprite_set_pixels",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set bounded RGBA pixels on one image layer and frame, saving to output_path."
+    },
+    {
+      "name": "aseprite_transform_cel",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Translate, flip, or quarter-turn one image cel."
+    },
+    {
+      "name": "aseprite_transform_selection",
+      "category": "pixels",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Move, copy, flip, quarter-turn, or nearest-neighbor scale a rectangular pixel region."
+    },
+    {
+      "name": "aseprite_trim_cels",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Trim transparent cel borders while preserving canvas placement."
+    },
+    {
+      "name": "aseprite_validate_animation",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Validate frame occupancy, bounds, baseline consistency, sizing, and duplicates."
+    },
+    {
+      "name": "aseprite_validate_asset_set",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Validate multiple assets against one profile and cross-asset consistency rules."
+    },
+    {
+      "name": "aseprite_validate_export_profile",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Validate a sprite against explicit engine-facing dimensions and naming requirements."
+    },
+    {
+      "name": "aseprite_validate_loop_transition",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Validate visual and optional timing continuity between loop endpoints."
+    },
+    {
+      "name": "aseprite_validate_pixel_art",
+      "category": "validation",
+      "profiles": [
+        "animation",
+        "tiles",
+        "qa",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Check color count, alpha, palette compliance, and isolated opaque pixels."
+    },
+    {
+      "name": "aseprite_validate_tileset",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Detect empty, duplicate, and non-seamless tiles."
+    }
+  ]
+}

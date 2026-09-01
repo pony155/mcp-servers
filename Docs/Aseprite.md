@@ -114,37 +114,46 @@ Python MCP server
 - Returns JSON only through the response file.
 - Never evaluates client-provided Lua source or arbitrary command names.
 
-## 5. Proposed repository layout
+## 5. Repository layout
 
 ```text
-servers/aseprite/
+aseprite/
   README.md
-  pyproject.toml
-  uv.lock
-  src/
-    aseprite_mcp/
-      __init__.py
-      __main__.py
-      adapter.py
-      server.py
-      config.py
-      errors.py
-      models.py
-      paths.py
-      process_runner.py
-      scripts/
-        __init__.py
-        bridge.lua
-  tests/
-    fixtures/
-    test_config.py
-    test_integration.py
-    test_models.py
-    test_paths.py
-    test_server.py
+  __main__.py
+  adapter.py                 # Stable compatibility facade.
+  server.py                  # Server construction and profile selection.
+  config.py
+  models.py                  # Stable aggregate schema export.
+  tools/                     # MCP registration by capability domain.
+    inputs.py                # Shared path, overwrite, and hash annotations.
+    catalog.json             # Generated machine-readable capability catalog.
+    TOOLS.md                 # Generated human-readable capability catalog.
+    generate_catalog.py
+  capabilities.py            # Profiles and explicit per-tool policy metadata.
+  services/                  # Adapter implementation by capability domain.
+  schemas/                   # Pydantic models by data domain.
+  scripts/
+    bridge.lua               # Compatibility marker.
+    bridge/
+      runtime.lua            # Shared Lua helpers and operation registry.
+      core.lua
+      pixels.lua
+      documents.lua
+      palettes.lua
+      animation.lua
+      tiles.lua
+      export.lua
+      validation.lua
+      dispatch.lua
+  skills/
+    CATALOG.md
+    catalog.json
+    generate_catalog.py
 ```
 
-Tool modules may be split further when they become difficult to test in isolation. Keep the package importable without starting the server, and put the blocking `mcp.run()` call behind the `if __name__ == "__main__"` guard in `__main__.py`. Do not introduce `packages/` until code is genuinely shared by another server.
+The facade modules preserve established imports while domain modules contain the implementation.
+Keep the package importable without starting the server, and keep the blocking `mcp.run()` call
+behind the `if __name__ == "__main__"` guard in `__main__.py`.
 
 ## 6. Execution protocol with Aseprite
 
@@ -155,7 +164,8 @@ Each bridge-backed operation should follow this sequence:
 3. Acquire an operation lock for each affected sprite path.
 4. Create a unique temporary directory.
 5. Write a bridge request containing a protocol version, operation name, and validated payload.
-6. Launch Aseprite with `--batch`, `--script-param`, and the checked-in `bridge.lua` script.
+6. Assemble the checked-in Lua fragments into a temporary `bridge.lua` and launch Aseprite with
+   `--batch` and `--script-param`.
 7. Capture the child process output and wait with a configurable timeout.
 8. Read and validate the bridge response schema.
 9. Move a completed output into place only after the operation succeeds.
@@ -201,6 +211,7 @@ Configuration precedence should be command-line argument, environment variable, 
 | Diagnostic capture | `--max-capture-bytes <n>` | `ASEPRITE_MCP_MAX_CAPTURE_BYTES` | Caps captured process and bridge output. |
 | Execution mode | `--execution-mode <mode>` | `ASEPRITE_MCP_EXECUTION_MODE` | `auto`, `native`, or `wsl-windows`. |
 | Bridge temporary root | `--bridge-temp-root <path>` | `ASEPRITE_MCP_BRIDGE_TEMP_ROOT` | Existing local directory for Lua control files. |
+| Tool profile | `--tool-profile <name>` | `ASEPRITE_MCP_TOOL_PROFILES` | Repeatable profiles; defaults to `full`. |
 
 Discovery inspects explicit configuration, `PATH`, and documented installation locations. The health tool reports an actionable error when discovery fails. The Lua bridge requires Aseprite 1.3-rc5 or newer because it uses the built-in JSON API; Aseprite 1.3.18.3 with scripting API version 41 is the initial tested version.
 

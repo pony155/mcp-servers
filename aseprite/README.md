@@ -119,6 +119,46 @@ Repeat `--allow-root` to authorize more than one directory. The equivalent envir
 - `ASEPRITE_MCP_EXECUTION_MODE`
 - `ASEPRITE_MCP_BRIDGE_TEMP_ROOT`
 - `ASEPRITE_MCP_LOG_LEVEL`
+- `ASEPRITE_MCP_TOOL_PROFILES`, as a comma-separated profile list
+
+## Tool profiles
+
+The default `full` profile exposes every tool and preserves existing client behavior. Smaller
+profiles reduce the schemas placed in an MCP client's context:
+
+| Profile | Intended surface |
+| --- | --- |
+| `core` | Health and normalized sprite inspection. |
+| `sprite` | General document, pixel, palette, preview, and export work. |
+| `animation` | Sprite tools plus animation editing, review, and validation. |
+| `tiles` | Sprite tools plus tilesets, tilemaps, metadata, and validation. |
+| `export` | Inspection plus render and export tools. |
+| `qa` | Inspection plus read-only comparison and validation tools. |
+| `full` | Every registered tool. |
+
+Repeat `--tool-profile` to combine profiles. Core tools are always available:
+
+```console
+python main.py --allow-root /path/to/sprites \
+  --tool-profile animation --tool-profile tiles
+```
+
+Profiles affect tool discovery only. They do not broaden allowed roots, overwrite permission, or
+the fixed Lua-operation allowlist.
+
+Call `aseprite_list_capabilities` to inspect every supported tool, its domain, read/write policy,
+output kind, Aseprite requirement, profile membership, and whether it is enabled by the running
+server. The checked-in [`tools/TOOLS.md`](tools/TOOLS.md) and
+[`tools/catalog.json`](tools/catalog.json) contain the same build-time catalog. Regenerate them
+after changing tools:
+
+```console
+python aseprite/tools/generate_catalog.py
+```
+
+Common path, overwrite, and optimistic-concurrency parameter schemas live in `tools/inputs.py`.
+New tools must also receive an explicit policy in `capabilities.py`; unclassified tools are rejected
+during server construction and catalog generation.
 
 ## Logging
 
@@ -327,49 +367,14 @@ scaling the center and edge regions into a bounded inline PNG.
 
 ### Sprite-production skill
 
-Distributable Codex skills are under [`skills`](skills):
+Distributable Codex skills are under [`skills`](skills). Use the generated
+[`skills/CATALOG.md`](skills/CATALOG.md) to choose among the six workflow families and resolve
+overlap between related skills. Its machine-readable companion, [`skills/catalog.json`](skills/catalog.json),
+records every skill's recommended MCP tool profile.
 
-- `aseprite-sprite-production` for the general production loop.
-- `aseprite-animation-review` for timing, motion, and consistency review.
-- `aseprite-concept-to-sprite` for translating reference art into a sprite specification and asset.
-- `aseprite-game-export` for tags, slices, metadata, validation, and export handoff.
-- `aseprite-tileset-production` for tile construction and seamless-edge review.
-- `aseprite-palette-design` for role-based palette reduction and indexed conversion.
-- `aseprite-pixel-art-qa` for evidence-backed pixel-art quality review.
-- `aseprite-autotile-authoring` for adjacency-driven seamless terrain sets.
-- `aseprite-ui-sprite-production` for icons, states, panels, and nine-slices.
-- `aseprite-fighting-game-animation` for frame-data-driven combat motion.
-- `aseprite-color-variant-production` for controlled palette variants.
-- `aseprite-batch-asset-pipeline` for consistent multi-asset validation and export.
-- `aseprite-character-animation-set` for coherent full character state families.
-- `aseprite-vfx-production` for readable looping and one-shot visual effects.
-- `aseprite-environment-prop-production` for stateful props and collision metadata.
-- `aseprite-isometric-tile-production` for projection-safe isometric tile families.
-- `aseprite-engine-export-profile` for schema-driven engine handoff.
-- `aseprite-accessibility-review` for contrast, color, and motion review.
-- `aseprite-atlas-production` for deterministic multi-asset atlas workflows.
-- `aseprite-directional-animation` for consistent four-way or eight-way animation.
-- `aseprite-platformer-character-production` for controller-aligned platformer state sets.
-- `aseprite-top-down-character-production` for directional top-down characters and equipment.
-- `aseprite-bitmap-font-production` for grid-aligned glyph assets and coverage review.
-- `aseprite-nine-slice-ui-production` for scalable pixel UI with multi-size previews.
-- `aseprite-animation-event-authoring` for gameplay and audio frame triggers.
-- `aseprite-release-asset-audit` for final validation, comparison, and packaging review.
-- `aseprite-palette-cycle-production` for indexed ambient and effects animation.
-- `aseprite-pixel-art-restoration` for conservative artifact and palette cleanup.
-- `aseprite-animation-cleanup` for timing, jitter, inbetween, and seam correction.
-- `aseprite-rpg-icon-set-production` for coherent inventory and ability icon families.
-- `aseprite-portrait-expression-production` for identity-stable dialogue portrait variants.
-- `aseprite-looping-background-production` for temporal and spatial background loops.
-- `aseprite-tile-metadata-authoring` for engine-facing terrain and collision properties.
-- `aseprite-color-managed-export` for sRGB and ICC-aware asset handoff.
-- `aseprite-modular-character-production` for aligned paper-doll and equipment parts.
-- `aseprite-collision-shape-authoring` for stable rectangle and polygon geometry.
-- `aseprite-cutscene-animation-production` for timed, event-driven sequences.
-- `aseprite-retro-hardware-constraint-production` for verified platform budgets.
-
-Copy the desired directories into your Codex skills directory (normally `$CODEX_HOME/skills`) and
-restart Codex to make them available.
+After adding, removing, or renaming a skill, regenerate the catalog with
+`python aseprite/skills/generate_catalog.py`. Copy only the desired skill directories into your
+Codex skills directory (normally `$CODEX_HOME/skills`) and restart Codex to make them available.
 
 ## Safety behavior
 

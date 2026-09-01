@@ -37,12 +37,14 @@ def main() -> None:
         sys.platform,
     )
     logger.info(
-        "Configuration: executable=%s roots=%d requested_mode=%s timeout=%ss concurrency=%d",
+        "Configuration: executable=%s roots=%d requested_mode=%s timeout=%ss concurrency=%d "
+        "tool_profiles=%s",
         settings.aseprite_executable or "not found",
         len(settings.allowed_roots),
         settings.execution_mode,
         f"{settings.timeout_seconds:g}",
         settings.max_concurrency,
+        ",".join(settings.tool_profiles),
     )
     for root in settings.allowed_roots:
         logger.debug("Authorized filesystem root: %s", root)
