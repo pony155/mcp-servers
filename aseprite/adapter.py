@@ -16,16 +16,38 @@ from .config import Settings
 from .errors import AsepriteMCPError
 from .interop import ProcessPathMapper, resolve_execution_mode
 from .models import (
+    AnimationFrameDefinition,
+    AnimationTagDefinition,
     AnimationValidationResult,
+    CelInspectionResult,
+    CompositedPixelReadResult,
+    ContactSheetResult,
     FileResult,
+    FrameComparisonResult,
+    FrameEditOperation,
     FrameDefinition,
     HealthResult,
     LayerDefinition,
+    LayerEditOperation,
     MutationResult,
+    PaletteAnalysisResult,
+    PaletteColorInput,
     PixelInput,
+    PixelReadResult,
+    PixelRunInput,
+    PropertyEditOperation,
     RenderResult,
     SpriteInfo,
     SpriteSheetResult,
+    SliceEditOperation,
+    ShapeInput,
+    TagEditOperation,
+    TilemapCellInput,
+    TilesetEditOperation,
+    TilesetExportResult,
+    TilesetInspectionResult,
+    TilesetValidationResult,
+    SelectionEditOperation,
 )
 from .paths import (
     RENDER_EXTENSIONS,
@@ -46,7 +68,10 @@ MAX_CANVAS_PIXELS = 16_777_216
 MAX_FRAMES = 256
 MAX_LAYERS = 128
 MAX_PIXEL_EDITS = 10_000
+MAX_ANIMATION_PIXEL_EDITS = 100_000
 MAX_VALIDATION_PIXEL_VISITS = 16_777_216
+MAX_PIXEL_READS = 65_536
+MAX_PIXEL_RUN_EDITS = 100_000
 CANVAS_ANCHORS = frozenset(
     {
         "top-left",
@@ -558,6 +583,72 @@ class AsepriteAdapter:
         logger.info("Sprite creation completed output=%s bytes=%d", output, mutation.byte_size)
         return mutation
 
+    async def create_animation(
+        self,
+        output_path: str,
+        *,
+        width: int,
+        height: int,
+        color_mode: Literal["rgb", "grayscale", "indexed"],
+        layers: list[LayerDefinition],
+        frames: list[AnimationFrameDefinition],
+        tags: list[AnimationTagDefinition],
+        overwrite: bool,
+    ) -> MutationResult:
+        self._validate_animation_creation(width, height, layers, frames, tags)
+        output = self.paths.output_file(
+            output_path, extensions=SPRITE_DOCUMENT_EXTENSIONS, overwrite=overwrite
+        )
+        temporary = temporary_sibling(output)
+        total_cels = sum(len(frame.cels) for frame in frames)
+        total_pixels = sum(len(cel.pixels) for frame in frames for cel in frame.cels)
+        logger.info(
+            "Creating animation output=%s size=%dx%d mode=%s layers=%d frames=%d "
+            "cels=%d pixels=%d tags=%d overwrite=%s",
+            output,
+            width,
+            height,
+            color_mode,
+            len(layers),
+            len(frames),
+            total_cels,
+            total_pixels,
+            len(tags),
+            overwrite,
+        )
+        async with self._locked([output]):
+            try:
+                await self._bridge(
+                    "create_animation",
+                    {
+                        "output_path": self._process_path(temporary),
+                        "width": width,
+                        "height": height,
+                        "color_mode": color_mode,
+                        "layers": [layer.model_dump() for layer in layers],
+                        "frames": [frame.model_dump() for frame in frames],
+                        "tags": [tag.model_dump() for tag in tags],
+                    },
+                )
+                if not temporary.is_file():
+                    raise AsepriteMCPError(
+                        "ASEPRITE_FAILED", "Aseprite did not create the animation document"
+                    )
+                publish_file(temporary, output)
+            finally:
+                temporary.unlink(missing_ok=True)
+        sprite = await self.inspect_sprite(str(output))
+        mutation = MutationResult(
+            **self._file_result(output).model_dump(), source_sha256=None, sprite=sprite
+        )
+        logger.info(
+            "Animation creation completed output=%s frames=%d bytes=%d",
+            output,
+            sprite.frame_count,
+            mutation.byte_size,
+        )
+        return mutation
+
     async def set_pixels(
         self,
         source_path: str,
@@ -802,6 +893,683 @@ class AsepriteAdapter:
         )
         return validation
 
+    async def preview(
+        self,
+        source_path: str,
+        *,
+        mode: Literal["frame", "sheet"],
+        frame: int,
+        layout: Literal["horizontal", "vertical", "rows", "columns", "packed"],
+        tag: str | None,
+        layers: list[str],
+        scale: float,
+    ) -> bytes:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        if frame < 0:
+            raise AsepriteMCPError("INVALID_SELECTOR", "frame must be zero or greater")
+        if mode == "frame" and tag is not None:
+            raise AsepriteMCPError("INVALID_SELECTOR", "frame previews do not accept a tag")
+        if not 0.1 <= scale <= 16:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "scale must be between 0.1 and 16")
+        logger.info(
+            "Previewing sprite source=%s mode=%s frame=%d tag=%s layers=%d scale=%s",
+            source, mode, frame, tag, len(layers), f"{scale:g}",
+        )
+        with tempfile.TemporaryDirectory(
+            prefix="aseprite-preview-", dir=self.bridge_temp_root
+        ) as temporary_directory:
+            output = Path(temporary_directory) / "preview.png"
+            arguments = ["--batch", "--noinapp"]
+            for layer in layers:
+                arguments.extend(["--layer", layer])
+            if tag is not None:
+                arguments.extend(["--tag", tag])
+            arguments.append(self._process_path(source))
+            if scale != 1:
+                arguments.extend(["--scale", f"{scale:g}"])
+            if mode == "frame":
+                arguments.extend(
+                    ["--frame-range", f"{frame},{frame}", "--save-as", self._process_path(output)]
+                )
+            else:
+                arguments.extend(
+                    ["--sheet-type", layout, "--sheet", self._process_path(output)]
+                )
+            async with self._locked([source]):
+                await self._run(arguments, operation="preview")
+            if not output.is_file():
+                raise AsepriteMCPError("ASEPRITE_FAILED", "Aseprite did not create the preview")
+            byte_size = output.stat().st_size
+            if byte_size > self.settings.max_capture_bytes:
+                raise AsepriteMCPError(
+                    "LIMIT_EXCEEDED",
+                    "Preview exceeds the inline response size limit; reduce scale or frame count",
+                )
+            data = output.read_bytes()
+        logger.info("Preview completed source=%s bytes=%d", source, len(data))
+        return data
+
+    async def read_pixels(
+        self,
+        source_path: str,
+        *,
+        layer: str,
+        frame: int,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        include_transparent: bool,
+    ) -> PixelReadResult:
+        if min(frame, x, y) < 0 or width < 1 or height < 1:
+            raise AsepriteMCPError(
+                "INVALID_SELECTOR",
+                "frame and position must be non-negative; size must be positive",
+            )
+        if width * height > MAX_PIXEL_READS:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"At most {MAX_PIXEL_READS} pixels may be read per call"
+            )
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        logger.info(
+            "Reading pixels source=%s layer=%s frame=%d bounds=%d,%d %dx%d",
+            source, layer, frame, x, y, width, height,
+        )
+        async with self._locked([source]):
+            result = await self._bridge(
+                "read_pixels",
+                {
+                    "source_path": self._process_path(source), "layer": layer,
+                    "frame": frame, "x": x, "y": y, "width": width, "height": height,
+                    "include_transparent": include_transparent,
+                },
+            )
+            result["source_path"] = str(source)
+            result["sha256"] = sha256_file(source)
+        return PixelReadResult.model_validate(result)
+
+    async def edit_frames(
+        self, source_path: str, output_path: str, *, operations: list[FrameEditOperation],
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not operations or len(operations) > MAX_FRAMES:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"operations must contain 1 to {MAX_FRAMES} items"
+            )
+        for operation in operations:
+            if operation.action == "set_duration" and operation.duration_ms is None:
+                raise AsepriteMCPError("INVALID_INPUT", "set_duration requires duration_ms")
+            if operation.action != "set_duration" and operation.duration_ms is not None:
+                raise AsepriteMCPError(
+                    "INVALID_INPUT", "duration_ms is only valid for set_duration"
+                )
+        return await self._bridge_mutation(
+            "edit_frames", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "operations": [item.model_dump() for item in operations],
+                "max_frames": MAX_FRAMES,
+            },
+        )
+
+    async def edit_layers(
+        self, source_path: str, output_path: str, *, operations: list[LayerEditOperation],
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not operations or len(operations) > MAX_LAYERS:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"operations must contain 1 to {MAX_LAYERS} items"
+            )
+        for operation in operations:
+            action = operation.action
+            if action in {"add", "add_group"} and operation.name is None:
+                raise AsepriteMCPError("INVALID_INPUT", f"{action} requires name")
+            if action not in {"add", "add_group"} and operation.layer is None:
+                raise AsepriteMCPError("INVALID_INPUT", f"{action} requires layer")
+            if action == "rename" and operation.name is None:
+                raise AsepriteMCPError("INVALID_INPUT", "rename requires name")
+            if action == "set_visibility" and operation.visible is None:
+                raise AsepriteMCPError("INVALID_INPUT", "set_visibility requires visible")
+            if action == "set_opacity" and operation.opacity is None:
+                raise AsepriteMCPError("INVALID_INPUT", "set_opacity requires opacity")
+            if action == "move" and operation.parent is None and operation.stack_index is None:
+                raise AsepriteMCPError("INVALID_INPUT", "move requires parent or stack_index")
+        return await self._bridge_mutation(
+            "edit_layers", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "operations": [item.model_dump() for item in operations],
+                "max_layers": MAX_LAYERS,
+            },
+        )
+
+    async def edit_tags(
+        self, source_path: str, output_path: str, *, operations: list[TagEditOperation],
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not operations or len(operations) > MAX_FRAMES:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"operations must contain 1 to {MAX_FRAMES} items"
+            )
+        for operation in operations:
+            if operation.action == "set":
+                if operation.from_frame is None or operation.to_frame is None:
+                    raise AsepriteMCPError("INVALID_INPUT", "set requires from_frame and to_frame")
+                if operation.from_frame > operation.to_frame:
+                    raise AsepriteMCPError("INVALID_SELECTOR", "tag starts after it ends")
+        return await self._bridge_mutation(
+            "edit_tags", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"operations": [item.model_dump() for item in operations]},
+        )
+
+    async def apply_palette(
+        self, source_path: str, output_path: str, *, colors: list[PaletteColorInput],
+        preserve_alpha: bool, overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not colors or len(colors) > 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "colors must contain 1 to 256 entries")
+        return await self._bridge_mutation(
+            "apply_palette", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"colors": [item.color for item in colors], "preserve_alpha": preserve_alpha,
+                     "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS},
+        )
+
+    async def transform_cel(
+        self, source_path: str, output_path: str, *, layer: str, frame: int,
+        action: Literal[
+            "translate", "flip_horizontal", "flip_vertical", "rotate_90_cw", "rotate_90_ccw"
+        ],
+        offset_x: int, offset_y: int, overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        if frame < 0:
+            raise AsepriteMCPError("INVALID_SELECTOR", "frame must be zero or greater")
+        x_in_range = -MAX_CANVAS_DIMENSION <= offset_x <= MAX_CANVAS_DIMENSION
+        y_in_range = -MAX_CANVAS_DIMENSION <= offset_y <= MAX_CANVAS_DIMENSION
+        if not x_in_range or not y_in_range:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "offsets exceed the canvas dimension limit")
+        if action != "translate" and (offset_x or offset_y):
+            raise AsepriteMCPError("INVALID_INPUT", "offsets are only valid for translate")
+        return await self._bridge_mutation(
+            "transform_cel", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"layer": layer, "frame": frame, "action": action,
+                     "offset_x": offset_x, "offset_y": offset_y},
+        )
+
+    async def read_composited_pixels(
+        self,
+        source_path: str,
+        *,
+        frame: int,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        include_transparent: bool,
+    ) -> CompositedPixelReadResult:
+        if min(frame, x, y) < 0 or width < 1 or height < 1:
+            raise AsepriteMCPError("INVALID_SELECTOR", "invalid frame or pixel rectangle")
+        if width * height > MAX_PIXEL_READS:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", f"At most {MAX_PIXEL_READS} pixels may be read per call"
+            )
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge(
+                "read_composited_pixels",
+                {
+                    "source_path": self._process_path(source),
+                    "frame": frame,
+                    "x": x,
+                    "y": y,
+                    "width": width,
+                    "height": height,
+                    "include_transparent": include_transparent,
+                },
+            )
+            result["source_path"] = str(source)
+            result["sha256"] = sha256_file(source)
+        return CompositedPixelReadResult.model_validate(result)
+
+    async def set_pixel_runs(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        layer: str,
+        frame: int,
+        runs: list[PixelRunInput],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        pixel_count = sum(run.length for run in runs)
+        if not runs:
+            raise AsepriteMCPError("INVALID_INPUT", "runs must not be empty")
+        if pixel_count > MAX_PIXEL_RUN_EDITS:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED",
+                f"At most {MAX_PIXEL_RUN_EDITS} pixels may be written per call",
+            )
+        return await self._bridge_mutation(
+            "set_pixel_runs",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "layer": layer,
+                "frame": frame,
+                "runs": [run.model_dump() for run in runs],
+            },
+        )
+
+    async def copy_cel(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        source_layer: str,
+        source_frame: int,
+        target_layer: str,
+        target_frame: int,
+        linked: bool,
+        replace: bool,
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if min(source_frame, target_frame) < 0:
+            raise AsepriteMCPError("INVALID_SELECTOR", "frame indices must be non-negative")
+        return await self._bridge_mutation(
+            "copy_cel",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "source_layer": source_layer,
+                "source_frame": source_frame,
+                "target_layer": target_layer,
+                "target_frame": target_frame,
+                "linked": linked,
+                "replace": replace,
+            },
+        )
+
+    async def trim_cels(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        layers: list[str],
+        frames: list[int],
+        remove_empty: bool,
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if len(layers) > MAX_LAYERS or len(frames) > MAX_FRAMES or any(x < 0 for x in frames):
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "layer or frame selection exceeds limits")
+        return await self._bridge_mutation(
+            "trim_cels",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"layers": layers, "frames": frames, "remove_empty": remove_empty},
+        )
+
+    async def edit_slices(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        operations: list[SliceEditOperation],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not operations or len(operations) > 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "operations must contain 1 to 256 items")
+        for operation in operations:
+            if operation.action == "set" and operation.bounds is None:
+                raise AsepriteMCPError("INVALID_INPUT", "set requires bounds")
+            if operation.action == "remove" and any(
+                value is not None for value in (operation.bounds, operation.center, operation.pivot)
+            ):
+                raise AsepriteMCPError("INVALID_INPUT", "remove accepts only name and frame")
+        return await self._bridge_mutation(
+            "edit_slices",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def edit_properties(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        operations: list[PropertyEditOperation],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not operations or len(operations) > 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "operations must contain 1 to 256 items")
+        for operation in operations:
+            if operation.action == "set" and operation.value is None:
+                raise AsepriteMCPError("INVALID_INPUT", "set requires a scalar value")
+            if operation.target in {"layer", "cel"} and operation.layer is None:
+                raise AsepriteMCPError("INVALID_INPUT", f"{operation.target} requires layer")
+            if operation.target in {"tag", "slice"} and operation.name is None:
+                raise AsepriteMCPError("INVALID_INPUT", f"{operation.target} requires name")
+            if operation.target == "cel" and operation.frame is None:
+                raise AsepriteMCPError("INVALID_INPUT", "cel requires frame")
+        return await self._bridge_mutation(
+            "edit_properties",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def convert_color_mode(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        color_mode: Literal["rgb", "grayscale", "indexed"],
+        dithering: Literal["none", "ordered", "error-diffusion"],
+        dithering_matrix: Literal["bayer2x2", "bayer4x4", "bayer8x8"],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        return await self._bridge_mutation(
+            "convert_color_mode",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "color_mode": color_mode,
+                "dithering": dithering,
+                "dithering_matrix": dithering_matrix,
+            },
+        )
+
+    async def edit_tileset(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        operations: list[TilesetEditOperation],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not operations or len(operations) > 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "operations must contain 1 to 256 items")
+        total_pixels = sum(len(operation.pixels) for operation in operations)
+        if total_pixels > MAX_ANIMATION_PIXEL_EDITS:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "tileset pixel edits exceed the limit")
+        for operation in operations:
+            if operation.action == "add":
+                if None in (operation.name, operation.tile_width, operation.tile_height):
+                    raise AsepriteMCPError(
+                        "INVALID_INPUT", "add requires name, tile_width, and tile_height"
+                    )
+            elif operation.tileset is None:
+                raise AsepriteMCPError("INVALID_INPUT", f"{operation.action} requires tileset")
+            if operation.action == "rename" and operation.name is None:
+                raise AsepriteMCPError("INVALID_INPUT", "rename requires name")
+            needs_tile_index = operation.action in {"remove_tile", "set_tile_pixels"}
+            if needs_tile_index and operation.tile_index is None:
+                raise AsepriteMCPError("INVALID_INPUT", f"{operation.action} requires tile_index")
+        return await self._bridge_mutation(
+            "edit_tileset",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def compare_frames(
+        self,
+        source_path: str,
+        *,
+        first_frame: int,
+        second_frame: int,
+        difference_output_path: str | None,
+        overwrite: bool,
+    ) -> FrameComparisonResult:
+        if min(first_frame, second_frame) < 0:
+            raise AsepriteMCPError("INVALID_SELECTOR", "frame indices must be non-negative")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        output = None
+        temporary = None
+        if difference_output_path is not None:
+            output = self.paths.output_file(
+                difference_output_path, extensions=frozenset({".png"}), overwrite=overwrite
+            )
+            temporary = temporary_sibling(output)
+        lock_paths = [source] if output is None else [source, output]
+        async with self._locked(lock_paths):
+            try:
+                result = await self._bridge(
+                    "compare_frames",
+                    {
+                        "source_path": self._process_path(source),
+                        "first_frame": first_frame,
+                        "second_frame": second_frame,
+                        "difference_output_path": (
+                            self._process_path(temporary) if temporary is not None else None
+                        ),
+                        "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+                    },
+                )
+                if temporary is not None and output is not None:
+                    if not temporary.is_file():
+                        raise AsepriteMCPError(
+                            "ASEPRITE_FAILED", "Aseprite did not create the difference image"
+                        )
+                    publish_file(temporary, output)
+                    result["difference"] = self._file_result(output).model_dump()
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+        result["source_path"] = str(source)
+        result["sha256"] = sha256_file(source)
+        return FrameComparisonResult.model_validate(result)
+
+    async def render_contact_sheet(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        columns: int,
+        scale: int,
+        overwrite: bool,
+    ) -> ContactSheetResult:
+        if not 1 <= columns <= 64 or not 1 <= scale <= 16:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "columns or scale exceeds the limit")
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        output = self.paths.output_file(
+            output_path, extensions=frozenset({".png"}), overwrite=overwrite
+        )
+        temporary = temporary_sibling(output)
+        async with self._locked([source, output]):
+            try:
+                result = await self._bridge(
+                    "render_contact_sheet",
+                    {
+                        "source_path": self._process_path(source),
+                        "output_path": self._process_path(temporary),
+                        "columns": columns,
+                        "scale": scale,
+                        "max_pixels": MAX_CANVAS_PIXELS,
+                    },
+                )
+                if not temporary.is_file():
+                    raise AsepriteMCPError(
+                        "ASEPRITE_FAILED", "Aseprite did not create the contact sheet"
+                    )
+                publish_file(temporary, output)
+            finally:
+                temporary.unlink(missing_ok=True)
+        return ContactSheetResult(
+            **self._file_result(output).model_dump(),
+            frame_count=int(result["frame_count"]),
+            columns=int(result["columns"]),
+            rows=int(result["rows"]),
+            scale=scale,
+        )
+
+    async def inspect_cels(self, source_path: str) -> CelInspectionResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge("inspect_cels", {"source_path": self._process_path(source)})
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return CelInspectionResult.model_validate(result)
+
+    async def analyze_palette(
+        self, source_path: str, *, near_duplicate_distance: int
+    ) -> PaletteAnalysisResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge(
+                "analyze_palette",
+                {"source_path": self._process_path(source),
+                 "near_duplicate_distance": near_duplicate_distance,
+                 "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS},
+            )
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return PaletteAnalysisResult.model_validate(result)
+
+    async def replace_color(
+        self, source_path: str, output_path: str, **kwargs: Any
+    ) -> MutationResult:
+        return await self._bridge_mutation("replace_color", source_path, output_path, **kwargs)
+
+    async def fill_region(
+        self, source_path: str, output_path: str, **kwargs: Any
+    ) -> MutationResult:
+        return await self._bridge_mutation("fill_region", source_path, output_path, **kwargs)
+
+    async def draw_shapes(
+        self, source_path: str, output_path: str, *, shapes: list[ShapeInput],
+        overwrite: bool, expected_source_hash: str | None, layer: str, frame: int,
+    ) -> MutationResult:
+        if not shapes or len(shapes) > 256:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "shapes must contain 1 to 256 items")
+        return await self._bridge_mutation(
+            "draw_shapes", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"layer": layer, "frame": frame,
+                     "shapes": [shape.model_dump() for shape in shapes]},
+        )
+
+    async def edit_selection(
+        self, source_path: str, output_path: str, *, operations: list[SelectionEditOperation],
+        overwrite: bool, expected_source_hash: str | None,
+    ) -> MutationResult:
+        return await self._bridge_mutation(
+            "edit_selection", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def apply_outline(
+        self, source_path: str, output_path: str, **kwargs: Any
+    ) -> MutationResult:
+        return await self._bridge_mutation("apply_outline", source_path, output_path, **kwargs)
+
+    async def inspect_tilesets(self, source_path: str) -> TilesetInspectionResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge(
+                "inspect_tilesets", {"source_path": self._process_path(source)}
+            )
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return TilesetInspectionResult.model_validate(result)
+
+    async def edit_tilemap(
+        self, source_path: str, output_path: str, *, layer: str, tileset: str,
+        frame: int, create_layer: bool, cells: list[TilemapCellInput], overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if not cells or len(cells) > 100_000:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "cells must contain 1 to 100000 items")
+        return await self._bridge_mutation(
+            "edit_tilemap", source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"layer": layer, "tileset": tileset, "frame": frame,
+                     "create_layer": create_layer,
+                     "cells": [cell.model_dump() for cell in cells]},
+        )
+
+    async def validate_tileset(
+        self, source_path: str, *, tileset: str, check_edges: bool,
+    ) -> TilesetValidationResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS)
+        async with self._locked([source]):
+            result = await self._bridge(
+                "validate_tileset", {"source_path": self._process_path(source),
+                                     "tileset": tileset, "check_edges": check_edges,
+                                     "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS},
+            )
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return TilesetValidationResult.model_validate(result)
+
+    async def export_tileset(
+        self, source_path: str, image_output_path: str, data_output_path: str, *,
+        tileset: str, columns: int, overwrite: bool,
+    ) -> TilesetExportResult:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS)
+        image_output = self.paths.output_file(
+            image_output_path, extensions=frozenset({".png"}), overwrite=overwrite
+        )
+        data_output = self.paths.output_file(
+            data_output_path, extensions=frozenset({".json"}), overwrite=overwrite
+        )
+        image_temp, data_temp = temporary_sibling(image_output), temporary_sibling(data_output)
+        async with self._locked([source, image_output, data_output]):
+            try:
+                await self._bridge("export_tileset", {"source_path": self._process_path(source),
+                    "image_output_path": self._process_path(image_temp),
+                    "data_output_path": self._process_path(data_temp),
+                    "tileset": tileset, "columns": columns, "max_pixels": MAX_CANVAS_PIXELS})
+                if not image_temp.is_file() or not data_temp.is_file():
+                    raise AsepriteMCPError("ASEPRITE_FAILED", "tileset outputs were not created")
+                publish_file(image_temp, image_output)
+                publish_file(data_temp, data_output)
+            finally:
+                image_temp.unlink(missing_ok=True)
+                data_temp.unlink(missing_ok=True)
+        return TilesetExportResult(image=self._file_result(image_output),
+                                   data=self._file_result(data_output), tileset=tileset)
+
+    async def preview_animation(
+        self, source_path: str, *, tag: str | None, scale: float,
+    ) -> bytes:
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        with tempfile.TemporaryDirectory(prefix="aseprite-animation-preview-",
+                                         dir=self.bridge_temp_root) as directory:
+            output = Path(directory) / "preview.gif"
+            arguments = ["--batch", "--noinapp"]
+            if tag is not None: arguments.extend(["--tag", tag])
+            arguments.append(self._process_path(source))
+            if scale != 1: arguments.extend(["--scale", f"{scale:g}"])
+            arguments.extend(["--save-as", self._process_path(output)])
+            async with self._locked([source]):
+                await self._run(arguments, operation="preview_animation")
+            if not output.is_file():
+                raise AsepriteMCPError("ASEPRITE_FAILED", "GIF preview was not created")
+            if output.stat().st_size > self.settings.max_capture_bytes:
+                raise AsepriteMCPError("LIMIT_EXCEEDED", "GIF preview exceeds inline size limit")
+            return output.read_bytes()
+
     async def _bridge_mutation(
         self,
         operation: str,
@@ -890,6 +1658,84 @@ class AsepriteAdapter:
             raise AsepriteMCPError(
                 "LIMIT_EXCEEDED", f"At most {MAX_PIXEL_EDITS} initial pixels are allowed"
             )
+
+    @classmethod
+    def _validate_animation_creation(
+        cls,
+        width: int,
+        height: int,
+        layers: list[LayerDefinition],
+        frames: list[AnimationFrameDefinition],
+        tags: list[AnimationTagDefinition],
+    ) -> None:
+        cls._validate_canvas_dimensions(width, height)
+        if not layers:
+            raise AsepriteMCPError("INVALID_INPUT", "At least one layer is required")
+        if len(layers) > MAX_LAYERS:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", f"At most {MAX_LAYERS} layers are allowed")
+        layer_names = [layer.name for layer in layers]
+        if len(set(layer_names)) != len(layer_names):
+            raise AsepriteMCPError("INVALID_INPUT", "Animation layer names must be unique")
+        if not frames:
+            raise AsepriteMCPError("INVALID_INPUT", "At least one animation frame is required")
+        if len(frames) > MAX_FRAMES:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", f"At most {MAX_FRAMES} frames are allowed")
+        if width * height * len(frames) > MAX_CANVAS_PIXELS:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED", "Animation canvas pixel count exceeds the limit"
+            )
+
+        total_pixels = 0
+        known_layers = set(layer_names)
+        for frame_index, frame in enumerate(frames):
+            if len(frame.cels) > MAX_LAYERS:
+                raise AsepriteMCPError(
+                    "LIMIT_EXCEEDED", f"Frame {frame_index} contains too many cels"
+                )
+            cel_layers: set[str] = set()
+            for cel in frame.cels:
+                if cel.layer not in known_layers:
+                    raise AsepriteMCPError(
+                        "INVALID_SELECTOR",
+                        f"Frame {frame_index} references unknown layer: {cel.layer}",
+                    )
+                if cel.layer in cel_layers:
+                    raise AsepriteMCPError(
+                        "INVALID_INPUT",
+                        f"Frame {frame_index} contains more than one cel for layer: {cel.layer}",
+                    )
+                cel_layers.add(cel.layer)
+                if len(cel.pixels) > MAX_PIXEL_EDITS:
+                    raise AsepriteMCPError(
+                        "LIMIT_EXCEEDED",
+                        f"A cel may contain at most {MAX_PIXEL_EDITS} pixels",
+                    )
+                for pixel in cel.pixels:
+                    if pixel.x >= width or pixel.y >= height:
+                        raise AsepriteMCPError(
+                            "INVALID_SELECTOR",
+                            f"Frame {frame_index} contains a pixel outside the canvas",
+                        )
+                total_pixels += len(cel.pixels)
+        if total_pixels > MAX_ANIMATION_PIXEL_EDITS:
+            raise AsepriteMCPError(
+                "LIMIT_EXCEEDED",
+                f"An animation may contain at most {MAX_ANIMATION_PIXEL_EDITS} pixel edits",
+            )
+
+        tag_names: set[str] = set()
+        for tag in tags:
+            if tag.name in tag_names:
+                raise AsepriteMCPError("INVALID_INPUT", "Animation tag names must be unique")
+            tag_names.add(tag.name)
+            if tag.from_frame > tag.to_frame:
+                raise AsepriteMCPError(
+                    "INVALID_SELECTOR", f"Tag {tag.name} starts after it ends"
+                )
+            if tag.to_frame >= len(frames):
+                raise AsepriteMCPError(
+                    "INVALID_SELECTOR", f"Tag {tag.name} references a frame outside the animation"
+                )
 
     @staticmethod
     def _validate_canvas_dimensions(width: int, height: int) -> None:

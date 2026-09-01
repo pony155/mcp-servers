@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Fighting Game Animation"
+  short_description: "Produce readable frame-data-driven combat animations"
+  default_prompt: "Use $aseprite-fighting-game-animation to plan, build, and review this combat animation."

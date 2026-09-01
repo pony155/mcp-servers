@@ -6,21 +6,44 @@ import logging
 from typing import Annotated, Literal
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver import Image
 from pydantic import Field
 
 from . import __version__
 from .adapter import AsepriteAdapter
 from .config import Settings
 from .models import (
+    AnimationFrameDefinition,
+    AnimationTagDefinition,
     AnimationValidationResult,
+    CelInspectionResult,
+    CompositedPixelReadResult,
+    ContactSheetResult,
+    FrameComparisonResult,
+    FrameEditOperation,
     FrameDefinition,
     HealthResult,
     LayerDefinition,
+    LayerEditOperation,
     MutationResult,
+    PaletteAnalysisResult,
+    PaletteColorInput,
     PixelInput,
+    PixelReadResult,
+    PixelRunInput,
+    PropertyEditOperation,
+    SelectionEditOperation,
     RenderResult,
     SpriteInfo,
     SpriteSheetResult,
+    SliceEditOperation,
+    ShapeInput,
+    TagEditOperation,
+    TilemapCellInput,
+    TilesetEditOperation,
+    TilesetExportResult,
+    TilesetInspectionResult,
+    TilesetValidationResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -145,6 +168,32 @@ def build_server(settings: Settings) -> MCPServer:
             layers=layers or [LayerDefinition(name="Layer 1")],
             frames=frames or [FrameDefinition()],
             pixels=pixels or [],
+            overwrite=overwrite,
+        )
+
+    @server.tool()
+    async def aseprite_create_animation(
+        output_path: Annotated[str, Field(description="Authorized .ase or .aseprite output path")],
+        width: Annotated[int, Field(ge=1, le=4096)],
+        height: Annotated[int, Field(ge=1, le=4096)],
+        frames: Annotated[list[AnimationFrameDefinition], Field(min_length=1, max_length=256)],
+        color_mode: Literal["rgb", "grayscale", "indexed"] = "rgb",
+        layers: Annotated[list[LayerDefinition] | None, Field(max_length=128)] = None,
+        tags: Annotated[list[AnimationTagDefinition] | None, Field(max_length=256)] = None,
+        overwrite: Annotated[
+            bool, Field(description="Explicitly allow replacing output_path")
+        ] = False,
+    ) -> MutationResult:
+        """Create an animation with per-frame durations, layer cels, pixels, and tags."""
+
+        return await adapter.create_animation(
+            output_path,
+            width=width,
+            height=height,
+            color_mode=color_mode,
+            layers=layers if layers is not None else [LayerDefinition(name="Layer 1")],
+            frames=frames,
+            tags=tags or [],
             overwrite=overwrite,
         )
 
@@ -334,5 +383,491 @@ def build_server(settings: Settings) -> MCPServer:
             check_duplicates=check_duplicates,
         )
 
-    logger.info("Registered 10 Aseprite MCP tools")
+    @server.tool()
+    async def aseprite_preview(
+        source_path: Annotated[str, Field(description="Authorized sprite or image path")],
+        mode: Literal["frame", "sheet"] = "frame",
+        frame: Annotated[int, Field(ge=0, description="Zero-based frame for frame mode")] = 0,
+        layout: Literal["horizontal", "vertical", "rows", "columns", "packed"] = "horizontal",
+        tag: Annotated[
+            str | None, Field(min_length=1, description="Optional tag for sheet mode")
+        ] = None,
+        layers: Annotated[
+            list[str] | None, Field(description="Exact layer paths to include")
+        ] = None,
+        scale: Annotated[float, Field(ge=0.1, le=16)] = 1.0,
+    ) -> Image:
+        """Return an inline PNG preview of one frame or a sprite sheet."""
+
+        data = await adapter.preview(
+            source_path, mode=mode, frame=frame, layout=layout, tag=tag,
+            layers=layers or [], scale=scale,
+        )
+        return Image(data=data, format="png")
+
+    @server.tool()
+    async def aseprite_read_pixels(
+        source_path: Annotated[str, Field(description="Authorized sprite or image path")],
+        layer: Annotated[str, Field(min_length=1, max_length=256, description="Exact layer path")],
+        frame: Annotated[int, Field(ge=0, description="Zero-based frame index")],
+        x: Annotated[int, Field(ge=0)],
+        y: Annotated[int, Field(ge=0)],
+        width: Annotated[int, Field(ge=1, le=4096)],
+        height: Annotated[int, Field(ge=1, le=4096)],
+        include_transparent: bool = False,
+    ) -> PixelReadResult:
+        """Read a bounded rectangle as compact row-based #RRGGBBAA runs."""
+
+        return await adapter.read_pixels(
+            source_path, layer=layer, frame=frame, x=x, y=y, width=width,
+            height=height, include_transparent=include_transparent,
+        )
+
+    @server.tool()
+    async def aseprite_edit_frames(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        operations: Annotated[list[FrameEditOperation], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Add, duplicate, remove, or retime frames in sequential operation order."""
+
+        return await adapter.edit_frames(
+            source_path, output_path, operations=operations, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_edit_layers(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        operations: Annotated[list[LayerEditOperation], Field(min_length=1, max_length=128)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Add, remove, rename, show, hide, reorder, or regroup layers sequentially."""
+
+        return await adapter.edit_layers(
+            source_path, output_path, operations=operations, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_edit_tags(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        operations: Annotated[list[TagEditOperation], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Create/update or remove animation tags in sequential operation order."""
+
+        return await adapter.edit_tags(
+            source_path, output_path, operations=operations, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_apply_palette(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        colors: Annotated[list[PaletteColorInput], Field(min_length=1, max_length=256)],
+        preserve_alpha: Annotated[
+            bool, Field(description="Preserve RGB-sprite pixel alpha")
+        ] = True,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Remap cel colors to the nearest supplied palette colors."""
+
+        return await adapter.apply_palette(
+            source_path, output_path, colors=colors, preserve_alpha=preserve_alpha,
+            overwrite=overwrite, expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_transform_cel(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        layer: Annotated[str, Field(min_length=1, max_length=256, description="Exact layer path")],
+        frame: Annotated[int, Field(ge=0, description="Zero-based frame index")],
+        action: Literal[
+            "translate", "flip_horizontal", "flip_vertical", "rotate_90_cw", "rotate_90_ccw"
+        ],
+        offset_x: Annotated[int, Field(ge=-4096, le=4096)] = 0,
+        offset_y: Annotated[int, Field(ge=-4096, le=4096)] = 0,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Translate, flip, or quarter-turn one image cel."""
+
+        return await adapter.transform_cel(
+            source_path, output_path, layer=layer, frame=frame, action=action,
+            offset_x=offset_x, offset_y=offset_y, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_read_composited_pixels(
+        source_path: Annotated[str, Field(description="Authorized sprite or image path")],
+        frame: Annotated[int, Field(ge=0, description="Zero-based frame index")],
+        x: Annotated[int, Field(ge=0)],
+        y: Annotated[int, Field(ge=0)],
+        width: Annotated[int, Field(ge=1, le=4096)],
+        height: Annotated[int, Field(ge=1, le=4096)],
+        include_transparent: bool = False,
+    ) -> CompositedPixelReadResult:
+        """Read final visible frame pixels as compact row-based RGBA runs."""
+
+        return await adapter.read_composited_pixels(
+            source_path,
+            frame=frame,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            include_transparent=include_transparent,
+        )
+
+    @server.tool()
+    async def aseprite_set_pixel_runs(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        layer: Annotated[str, Field(min_length=1, max_length=256)],
+        frame: Annotated[int, Field(ge=0)],
+        runs: Annotated[list[PixelRunInput], Field(min_length=1, max_length=10_000)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Write horizontal RGBA pixel runs efficiently to one layer and frame."""
+
+        return await adapter.set_pixel_runs(
+            source_path,
+            output_path,
+            layer=layer,
+            frame=frame,
+            runs=runs,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_copy_cel(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        source_layer: Annotated[str, Field(min_length=1, max_length=256)],
+        source_frame: Annotated[int, Field(ge=0)],
+        target_layer: Annotated[str, Field(min_length=1, max_length=256)],
+        target_frame: Annotated[int, Field(ge=0)],
+        linked: Annotated[bool, Field(description="Share image data between the two cels")] = False,
+        replace: Annotated[
+            bool, Field(description="Explicitly replace an existing target cel")
+        ] = False,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Copy or link an existing image cel to another layer/frame location."""
+
+        return await adapter.copy_cel(
+            source_path,
+            output_path,
+            source_layer=source_layer,
+            source_frame=source_frame,
+            target_layer=target_layer,
+            target_frame=target_frame,
+            linked=linked,
+            replace=replace,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_compare_frames(
+        source_path: Annotated[str, Field(description="Authorized sprite or image path")],
+        first_frame: Annotated[int, Field(ge=0)],
+        second_frame: Annotated[int, Field(ge=0)],
+        difference_output_path: Annotated[
+            str | None, Field(description="Optional authorized PNG difference path")
+        ] = None,
+        overwrite: bool = False,
+    ) -> FrameComparisonResult:
+        """Compare composited frames and optionally write a magenta difference image."""
+
+        return await adapter.compare_frames(
+            source_path,
+            first_frame=first_frame,
+            second_frame=second_frame,
+            difference_output_path=difference_output_path,
+            overwrite=overwrite,
+        )
+
+    @server.tool()
+    async def aseprite_edit_slices(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        operations: Annotated[list[SliceEditOperation], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Create/update frame-specific slices or remove named slices."""
+
+        return await adapter.edit_slices(
+            source_path,
+            output_path,
+            operations=operations,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_trim_cels(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        layers: Annotated[list[str] | None, Field(max_length=128)] = None,
+        frames: Annotated[list[int] | None, Field(max_length=256)] = None,
+        remove_empty: Annotated[
+            bool, Field(description="Delete selected empty transparent cels")
+        ] = False,
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Trim transparent cel borders while preserving canvas placement."""
+
+        return await adapter.trim_cels(
+            source_path,
+            output_path,
+            layers=layers or [],
+            frames=frames or [],
+            remove_empty=remove_empty,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_edit_properties(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        operations: Annotated[list[PropertyEditOperation], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Set or remove scalar user properties on sprite production objects."""
+
+        return await adapter.edit_properties(
+            source_path,
+            output_path,
+            operations=operations,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_convert_color_mode(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        color_mode: Literal["rgb", "grayscale", "indexed"],
+        dithering: Literal["none", "ordered", "error-diffusion"] = "none",
+        dithering_matrix: Literal["bayer2x2", "bayer4x4", "bayer8x8"] = "bayer8x8",
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Convert a sprite color mode with an explicit bounded dithering choice."""
+
+        return await adapter.convert_color_mode(
+            source_path,
+            output_path,
+            color_mode=color_mode,
+            dithering=dithering,
+            dithering_matrix=dithering_matrix,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_edit_tileset(
+        source_path: Annotated[str, Field(description="Authorized source sprite document")],
+        output_path: Annotated[str, Field(description="Authorized destination sprite document")],
+        operations: Annotated[list[TilesetEditOperation], Field(min_length=1, max_length=256)],
+        overwrite: bool = False,
+        expected_source_hash: Annotated[
+            str | None, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+        ] = None,
+    ) -> MutationResult:
+        """Create or rename tilesets and add, remove, or repaint their tiles."""
+
+        return await adapter.edit_tileset(
+            source_path,
+            output_path,
+            operations=operations,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
+    @server.tool()
+    async def aseprite_render_contact_sheet(
+        source_path: Annotated[str, Field(description="Authorized sprite or image path")],
+        output_path: Annotated[str, Field(description="Authorized PNG output path")],
+        columns: Annotated[int, Field(ge=1, le=64)] = 8,
+        scale: Annotated[int, Field(ge=1, le=16)] = 1,
+        overwrite: bool = False,
+    ) -> ContactSheetResult:
+        """Render every frame into a labelled PNG review grid."""
+
+        return await adapter.render_contact_sheet(
+            source_path,
+            output_path,
+            columns=columns,
+            scale=scale,
+            overwrite=overwrite,
+        )
+
+    @server.tool()
+    async def aseprite_inspect_cels(source_path: str) -> CelInspectionResult:
+        """Inspect cel geometry, opacity, z-index, image identity, and linked groups."""
+        return await adapter.inspect_cels(source_path)
+
+    @server.tool()
+    async def aseprite_analyze_palette(
+        source_path: str,
+        near_duplicate_distance: Annotated[int, Field(ge=0, le=765)] = 24,
+    ) -> PaletteAnalysisResult:
+        """Analyze exact color usage, unused entries, and nearby colors."""
+        return await adapter.analyze_palette(
+            source_path, near_duplicate_distance=near_duplicate_distance
+        )
+
+    @server.tool()
+    async def aseprite_replace_color(
+        source_path: str, output_path: str,
+        from_color: Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")],
+        to_color: Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")],
+        tolerance: Annotated[int, Field(ge=0, le=1020)] = 0,
+        layers: list[str] | None = None, frames: list[int] | None = None,
+        overwrite: bool = False, expected_source_hash: str | None = None,
+    ) -> MutationResult:
+        """Replace a color across selected image layers and frames."""
+        return await adapter.replace_color(source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"from_color":from_color,"to_color":to_color,"tolerance":tolerance,
+                     "layers":layers or [],"frames":frames or []})
+
+    @server.tool()
+    async def aseprite_fill_region(
+        source_path: str, output_path: str, layer: str,
+        frame: Annotated[int, Field(ge=0)], x: Annotated[int, Field(ge=0)],
+        y: Annotated[int, Field(ge=0)],
+        color: Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")],
+        contiguous: bool = True, overwrite: bool = False,
+        expected_source_hash: str | None = None,
+    ) -> MutationResult:
+        """Flood-fill a bounded layer/frame region from one coordinate."""
+        return await adapter.fill_region(source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"layer":layer,"frame":frame,"x":x,"y":y,"color":color,
+                     "contiguous":contiguous,"max_pixel_visits":16_777_216})
+
+    @server.tool()
+    async def aseprite_draw_shapes(
+        source_path: str, output_path: str, layer: str,
+        frame: Annotated[int, Field(ge=0)],
+        shapes: Annotated[list[ShapeInput], Field(min_length=1, max_length=256)],
+        overwrite: bool = False, expected_source_hash: str | None = None,
+    ) -> MutationResult:
+        """Draw fixed lines, rectangles, and ellipses on one layer/frame."""
+        return await adapter.draw_shapes(source_path, output_path, layer=layer, frame=frame,
+            shapes=shapes, overwrite=overwrite, expected_source_hash=expected_source_hash)
+
+    @server.tool()
+    async def aseprite_edit_selection(
+        source_path: str, output_path: str,
+        operations: Annotated[list[SelectionEditOperation], Field(min_length=1, max_length=256)],
+        overwrite: bool = False, expected_source_hash: str | None = None,
+    ) -> MutationResult:
+        """Replace, combine, clear, or select all of the document selection mask."""
+        return await adapter.edit_selection(source_path, output_path, operations=operations,
+            overwrite=overwrite, expected_source_hash=expected_source_hash)
+
+    @server.tool()
+    async def aseprite_apply_outline(
+        source_path: str, output_path: str, layer: str,
+        frame: Annotated[int, Field(ge=0)],
+        color: Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")],
+        place: Literal["inside", "outside"] = "outside",
+        matrix: Literal["circle", "square", "horizontal", "vertical"] = "circle",
+        overwrite: bool = False, expected_source_hash: str | None = None,
+    ) -> MutationResult:
+        """Apply a fixed inside or outside outline to one cel."""
+        return await adapter.apply_outline(source_path, output_path, overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={"layer":layer,"frame":frame,"color":color,"place":place,"matrix":matrix})
+
+    @server.tool()
+    async def aseprite_inspect_tilesets(source_path: str) -> TilesetInspectionResult:
+        """Inspect tileset dimensions/counts and tilemap layer paths."""
+        return await adapter.inspect_tilesets(source_path)
+
+    @server.tool()
+    async def aseprite_edit_tilemap(
+        source_path: str, output_path: str, layer: str, tileset: str,
+        frame: Annotated[int, Field(ge=0)],
+        cells: Annotated[list[TilemapCellInput], Field(min_length=1, max_length=100_000)],
+        create_layer: bool = False, overwrite: bool = False,
+        expected_source_hash: str | None = None,
+    ) -> MutationResult:
+        """Create or edit a tilemap layer using bounded tile-cell records."""
+        return await adapter.edit_tilemap(source_path, output_path, layer=layer, tileset=tileset,
+            frame=frame, create_layer=create_layer, cells=cells, overwrite=overwrite,
+            expected_source_hash=expected_source_hash)
+
+    @server.tool()
+    async def aseprite_validate_tileset(
+        source_path: str, tileset: str, check_edges: bool = True,
+    ) -> TilesetValidationResult:
+        """Detect empty, duplicate, and non-seamless tiles."""
+        return await adapter.validate_tileset(
+            source_path, tileset=tileset, check_edges=check_edges
+        )
+
+    @server.tool()
+    async def aseprite_export_tileset(
+        source_path: str, image_output_path: str, data_output_path: str, tileset: str,
+        columns: Annotated[int, Field(ge=1, le=256)] = 16, overwrite: bool = False,
+    ) -> TilesetExportResult:
+        """Export one tileset to a PNG grid and JSON metadata."""
+        return await adapter.export_tileset(source_path, image_output_path, data_output_path,
+            tileset=tileset, columns=columns, overwrite=overwrite)
+
+    @server.tool()
+    async def aseprite_preview_animation(
+        source_path: str, tag: str | None = None,
+        scale: Annotated[float, Field(ge=0.1, le=16)] = 1.0,
+    ) -> Image:
+        """Return an inline animated GIF for all frames or one tag."""
+        return Image(data=await adapter.preview_animation(source_path, tag=tag, scale=scale),
+                     format="gif")
+
+    logger.info("Registered 40 Aseprite MCP tools")
     return server

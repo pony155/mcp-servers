@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Color Variant Production"
+  short_description: "Create controlled readable sprite color variants"
+  default_prompt: "Use $aseprite-color-variant-production to create reviewed palette variants from this sprite."

@@ -1,8 +1,8 @@
 # Aseprite MCP Server Implementation Plan
 
-**Status:** v0.1 core implemented; additional structural editing tools remain planned  
-**Last updated:** 2026-08-31  
-**Target location:** `servers/aseprite/`
+**Status:** v0.1 core and sprite-production editing surface implemented
+**Last updated:** 2026-09-01
+**Target location:** `aseprite/`
 
 ## 1. Objective
 
@@ -301,13 +301,14 @@ Apply strict limits to canvas dimensions, frame count, layer count, palette size
 
 ### Editing tools
 
-Editing should use narrow tools instead of a generic `execute` operation:
+Editing uses narrow tools instead of a generic `execute` operation:
 
-- `aseprite_set_pixels`: write bounded rectangles, rows, or run-length encoded pixel spans to a specific layer and frame.
-- `aseprite_add_layer`, `aseprite_rename_layer`, and `aseprite_remove_layer`.
-- `aseprite_add_frame`, `aseprite_set_frame_duration`, and `aseprite_remove_frame`.
-- `aseprite_set_tag` and `aseprite_remove_tag`.
-- `aseprite_set_palette`.
+- `aseprite_set_pixels` writes bounded RGBA pixels to a specific layer and frame.
+- `aseprite_edit_frames` adds, duplicates, removes, or retimes frames using ordered operations.
+- `aseprite_edit_layers` adds, removes, renames, shows, hides, reorders, or regroups layers.
+- `aseprite_edit_tags` creates, updates, or removes animation tags.
+- `aseprite_apply_palette` remaps RGB or indexed cel colors to at most 256 supplied colors.
+- `aseprite_transform_cel` translates, flips, or quarter-turns one image cel.
 
 Every edit input should include:
 
@@ -320,6 +321,8 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
 
 ### Implemented animation workflow tools
 
+- `aseprite_create_animation` creates a complete bounded animation with per-frame duration,
+  per-layer cel pixels, and optional named playback tags in one atomic operation.
 - `aseprite_import_sprite_sheet` imports a bounded PNG grid into a new editable animation. It
   supports explicit cell dimensions, optional column and frame counts, margin, spacing, uniform
   frame duration, layer naming, optional tag creation, and exact color-key transparency.
@@ -330,10 +333,44 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
 - `aseprite_validate_animation` performs a bounded, read-only scan for empty frames, visible bounds,
   baseline drift, width/height drift, and possible duplicate frames. Tilemaps use a documented
   bounds approximation.
+- `aseprite_preview` returns a bounded inline PNG for one frame or a sprite-sheet selection without
+  publishing an output file.
+- `aseprite_read_pixels` returns up to 65,536 pixels from one image layer/frame as compact,
+  row-based `#RRGGBBAA` runs.
+- `aseprite_edit_frames`, `aseprite_edit_layers`, and `aseprite_edit_tags` apply ordered structural
+  edits, so selectors in later operations observe earlier changes.
+- `aseprite_apply_palette` performs bounded nearest-color remapping; grayscale documents are not
+  supported by this operation.
+- `aseprite_transform_cel` supports translation, horizontal/vertical flip, and clockwise or
+  counter-clockwise 90-degree rotation.
+- `aseprite_read_composited_pixels` provides exact final-frame RGBA runs for review and comparison.
+- `aseprite_set_pixel_runs` writes bounded horizontal spans without a per-pixel request object.
+- `aseprite_copy_cel` copies or links cel images and requires explicit replacement of an existing
+  target.
+- `aseprite_compare_frames` reports changed pixels, bounds, and baseline movement, with an optional
+  difference PNG.
+- `aseprite_edit_slices` manages frame-specific bounds, nine-slice centers, and pivots.
+- `aseprite_trim_cels` removes transparent image borders while retaining absolute cel placement.
+- `aseprite_edit_properties` manages scalar user metadata on sprites, layers, tags, slices, and cels.
+- `aseprite_convert_color_mode` wraps the documented batch-capable conversion command with explicit
+  color mode and dithering options.
+- `aseprite_edit_tileset` manages bounded tileset and tile-image operations; the separate
+  `aseprite_edit_tilemap` tool applies bounded tile-cell layout edits.
+- `aseprite_render_contact_sheet` writes a bounded, zero-based labelled frame-review grid.
+- Cel inspection and palette analysis expose linked-image identity and exact color usage.
+- Fixed color replacement, filling, shape drawing, selections, and outlining provide bounded
+  higher-level pixel operations without accepting scripts or arbitrary commands.
+- Tileset inspection, tilemap cell editing, validation, and PNG/JSON export complete the first
+  tile-production workflow.
+- `aseprite_preview_animation` returns a bounded inline GIF for direct client review.
 
-All three mutation tools use authorized paths, temporary sibling output, explicit overwrite
-permission, and normalized mutation results. Resize mutations also support optimistic source-hash
-guards.
+All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
+normalized mutation results, and optimistic source-hash guards where a source document is edited.
+
+Versioned Codex skills live under `aseprite/skills`. The general `aseprite-sprite-production` skill
+is complemented by focused animation-review, concept-to-sprite, game-export, tileset-production,
+and palette-design skills. Additional QA, autotile, UI, fighting-game, color-variant, and batch
+pipeline skills orchestrate the narrow MCP tools without adding new file authority.
 
 ## 9. Resources
 

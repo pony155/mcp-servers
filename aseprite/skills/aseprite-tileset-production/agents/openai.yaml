@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Tileset Production"
+  short_description: "Build and review reusable pixel-art tilesets in Aseprite"
+  default_prompt: "Use the Aseprite MCP tools to plan, build, inspect, and export a bounded reusable tileset."

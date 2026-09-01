@@ -142,13 +142,55 @@ bridge request payloads are not logged.
 | `aseprite_render` | Render a PNG frame or GIF animation selection. | Yes |
 | `aseprite_export_sprite_sheet` | Export a PNG sheet and JSON-array metadata. | Yes |
 | `aseprite_create_sprite` | Create a bounded `.ase` or `.aseprite` document. | Yes |
+| `aseprite_create_animation` | Create frames, layer cels, pixels, durations, and animation tags in one call. | Yes |
 | `aseprite_set_pixels` | Set up to 10,000 RGBA pixels on one layer/frame. | Yes |
 | `aseprite_import_sprite_sheet` | Import a PNG grid as an editable animation with one cel per frame. | Yes |
 | `aseprite_resize_canvas` | Change canvas dimensions and anchor artwork without scaling it. | Yes |
 | `aseprite_resize_sprite` | Scale a document and its cels with nearest-neighbor sampling. | Yes |
 | `aseprite_validate_animation` | Report empty or duplicate frames, visible bounds, baseline drift, and size drift. | No |
+| `aseprite_preview` | Return an inline PNG for one frame or a sprite-sheet selection. | No |
+| `aseprite_read_pixels` | Read a bounded rectangle as compact row-based RGBA runs. | No |
+| `aseprite_edit_frames` | Add, duplicate, remove, or retime frames sequentially. | Yes |
+| `aseprite_edit_layers` | Add, remove, rename, show, hide, reorder, or regroup layers. | Yes |
+| `aseprite_edit_tags` | Create, update, or remove animation tags. | Yes |
+| `aseprite_apply_palette` | Remap cel colors to the nearest supplied palette. | Yes |
+| `aseprite_transform_cel` | Translate, flip, or rotate one image cel. | Yes |
+| `aseprite_read_composited_pixels` | Read exact final visible frame pixels as RGBA runs. | No |
+| `aseprite_set_pixel_runs` | Write bounded horizontal color runs efficiently. | Yes |
+| `aseprite_copy_cel` | Copy or link a cel to another layer and frame. | Yes |
+| `aseprite_compare_frames` | Measure composited frame differences and optionally write a diff PNG. | Optional |
+| `aseprite_edit_slices` | Create/update frame-specific slices or remove named slices. | Yes |
+| `aseprite_trim_cels` | Trim transparent cel borders without changing canvas placement. | Yes |
+| `aseprite_edit_properties` | Set or remove scalar user properties on production objects. | Yes |
+| `aseprite_convert_color_mode` | Convert RGB, grayscale, or indexed mode with explicit dithering. | Yes |
+| `aseprite_edit_tileset` | Create/rename tilesets and add, remove, or repaint tiles. | Yes |
+| `aseprite_render_contact_sheet` | Write a labelled PNG grid containing every frame. | Yes |
+| `aseprite_inspect_cels` | Inspect cel geometry, z-order, image identity, and links. | No |
+| `aseprite_analyze_palette` | Report color usage, unused entries, and near-duplicates. | No |
+| `aseprite_replace_color` | Replace colors across selected layers and frames. | Yes |
+| `aseprite_fill_region` | Fill a contiguous region or every matching pixel. | Yes |
+| `aseprite_draw_shapes` | Draw validated lines, rectangles, and ellipses. | Yes |
+| `aseprite_edit_selection` | Combine or clear rectangular document selections. | Yes |
+| `aseprite_apply_outline` | Apply a bounded inside or outside cel outline. | Yes |
+| `aseprite_inspect_tilesets` | Inspect tilesets and tilemap layer paths. | No |
+| `aseprite_edit_tilemap` | Create or update bounded tilemap cells. | Yes |
+| `aseprite_validate_tileset` | Detect empty, duplicate, and edge-mismatched tiles. | No |
+| `aseprite_export_tileset` | Export a tileset PNG grid and JSON metadata. | Yes |
+| `aseprite_preview_animation` | Return an inline animated GIF. | No |
 
 Frame indices are zero-based. Layer selectors are exact hierarchy paths such as `Character/Outline`.
+
+### Animation creation
+
+`aseprite_create_animation` creates a complete animation in one atomic operation. Define flat,
+uniquely named `layers`, then supply `frames` containing a duration and zero or more cels. Each cel
+selects one declared layer and contains bounded `#RRGGBB` or `#RRGGBBAA` pixels. A frame may contain
+at most one cel for each layer. Optional tags use zero-based inclusive frame ranges and support
+`forward`, `reverse`, `ping_pong`, and `ping_pong_reverse` directions.
+
+The operation allows at most 256 frames, 128 layers, 10,000 pixels per cel, and 100,000 supplied
+pixels across the animation. Empty frames are allowed intentionally and can be detected later with
+`aseprite_validate_animation`.
 
 ### Sprite-sheet import
 
@@ -175,6 +217,64 @@ pixel counts, baselines, durations, empty frames, possible duplicate groups, and
 are approximated and identified by a warning. Validation stops when its bounded pixel-visit budget
 would be exceeded.
 
+### Production editing
+
+`aseprite_preview` returns PNG image content directly to an MCP client and does not write a user
+file. Frame mode selects one zero-based frame; sheet mode supports a layout, tag, and layer
+selection. The preview must fit within `ASEPRITE_MCP_MAX_CAPTURE_BYTES`.
+
+`aseprite_read_pixels` reads at most 65,536 canvas pixels from one exact image-layer path and frame.
+Its `rgba_runs` response compresses consecutive pixels of the same `#RRGGBBAA` color on each row;
+transparent runs are omitted unless requested.
+
+Frame, layer, and tag edits accept ordered operation lists. Operations run sequentially, so later
+indices and layer paths refer to the document state produced by earlier operations. Palette
+application supports RGB and indexed documents, remaps to at most 256 nearest colors, and rejects
+grayscale documents. For indexed sprites, transparent indices remain transparent; per-pixel alpha
+preservation is available only for RGB sprites. Cel transforms operate on one image-layer cel and
+support translation, horizontal/vertical flips, and 90-degree turns.
+
+Every mutation writes through a temporary sibling, uses explicit overwrite behavior, and accepts
+`expected_source_hash` to reject stale edits.
+
+### Advanced production tools
+
+`aseprite_read_composited_pixels` reads the final visible frame rather than an individual layer.
+`aseprite_compare_frames` measures exact composited changes, changed bounds, and baseline movement;
+an optional magenta PNG identifies changed pixels. `aseprite_render_contact_sheet` creates a bounded
+review grid with zero-based frame labels.
+
+`aseprite_set_pixel_runs` accepts horizontal spans and permits at most 100,000 written pixels per
+call. `aseprite_copy_cel` creates either an independent image copy or a linked cel; replacing an
+existing target cel requires `replace=true`. `aseprite_trim_cels` preserves absolute canvas
+placement while reducing transparent image borders.
+
+Slices support frame-specific bounds, optional local nine-slice centers, and local pivots. Scalar
+user properties can target sprites, layers, tags, slices, and cels. Color-mode conversion uses the
+documented Aseprite conversion command with explicit dithering choices. Tileset editing supports
+bounded tileset creation, renaming, tile insertion/removal, and tile pixel replacement; tilemap
+layout editing is outside this version's scope.
+
+### Sprite-production skill
+
+Distributable Codex skills are under [`skills`](skills):
+
+- `aseprite-sprite-production` for the general production loop.
+- `aseprite-animation-review` for timing, motion, and consistency review.
+- `aseprite-concept-to-sprite` for translating reference art into a sprite specification and asset.
+- `aseprite-game-export` for tags, slices, metadata, validation, and export handoff.
+- `aseprite-tileset-production` for tile construction and seamless-edge review.
+- `aseprite-palette-design` for role-based palette reduction and indexed conversion.
+- `aseprite-pixel-art-qa` for evidence-backed pixel-art quality review.
+- `aseprite-autotile-authoring` for adjacency-driven seamless terrain sets.
+- `aseprite-ui-sprite-production` for icons, states, panels, and nine-slices.
+- `aseprite-fighting-game-animation` for frame-data-driven combat motion.
+- `aseprite-color-variant-production` for controlled palette variants.
+- `aseprite-batch-asset-pipeline` for consistent multi-asset validation and export.
+
+Copy the desired directories into your Codex skills directory (normally `$CODEX_HOME/skills`) and
+restart Codex to make them available.
+
 ## Safety behavior
 
 - File tools are disabled until an allowed root is configured.
@@ -186,7 +286,8 @@ would be exceeded.
 - Tool calls cannot supply raw Aseprite flags, executable paths, scripts, or Lua source.
 - Completed files are written to temporary sibling paths before publication.
 - Requests are bounded by time, process concurrency, diagnostic output, dimensions, frames, layers,
-  pixel edits, and validation pixel visits.
+  per-cel and total animation pixel edits, pixel runs, pixel reads, preview bytes, contact-sheet
+  dimensions, and validation/palette/comparison pixel visits.
 
 ## Development
 

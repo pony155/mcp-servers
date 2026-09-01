@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Animation Review"
+  short_description: "Review sprite motion, timing, consistency, and defects"
+  default_prompt: "Use Aseprite MCP tools to inspect, compare, preview, and validate this animation, then report focused corrections."

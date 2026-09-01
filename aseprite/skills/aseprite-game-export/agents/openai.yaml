@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Game Export"
+  short_description: "Validate and export Aseprite assets with engine-ready metadata"
+  default_prompt: "Validate tags, slices, properties, dimensions, and animation before exporting an engine-ready sprite sheet."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite UI Sprite Production"
+  short_description: "Produce pixel-art UI icons, panels, and nine-slices"
+  default_prompt: "Use $aseprite-ui-sprite-production to create and validate this pixel-art UI asset."
