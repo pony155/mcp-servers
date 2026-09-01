@@ -9,6 +9,21 @@ from pydantic import Field
 from .common import StrictModel
 
 
+class PropertyInspectionItem(StrictModel):
+    target: Literal["sprite", "layer", "tag", "slice", "cel", "tileset", "tile"]
+    identifier: str
+    frame: int | None = None
+    data: str
+    color: str
+    properties: dict[str, str | int | float | bool]
+
+
+class PropertyInspectionResult(StrictModel):
+    source_path: str
+    sha256: str
+    items: list[PropertyInspectionItem]
+
+
 class PropertyEditOperation(StrictModel):
     action: Literal["set", "remove"]
     target: Literal["sprite", "layer", "tag", "slice", "cel"]

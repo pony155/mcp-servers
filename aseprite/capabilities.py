@@ -35,6 +35,7 @@ READ_TOOL_NAMES = frozenset(
         "aseprite_generate_motion_report",
         "aseprite_health",
         "aseprite_inspect_cels",
+        "aseprite_inspect_properties",
         "aseprite_inspect_sprite",
         "aseprite_inspect_tile_metadata",
         "aseprite_inspect_tilesets",
@@ -64,6 +65,7 @@ WRITE_TOOL_NAMES = frozenset(
         "aseprite_compare_frames",
         "aseprite_convert_color_mode",
         "aseprite_copy_cel",
+        "aseprite_copy_layer_tree",
         "aseprite_create_animation",
         "aseprite_create_sprite",
         "aseprite_create_tileset_from_sheet",
@@ -87,6 +89,7 @@ WRITE_TOOL_NAMES = frozenset(
         "aseprite_edit_tileset",
         "aseprite_export_bitmap_font",
         "aseprite_export_frames",
+        "aseprite_export_tilemap_data",
         "aseprite_export_palette",
         "aseprite_export_sprite_sheet",
         "aseprite_export_tileset",
@@ -94,14 +97,17 @@ WRITE_TOOL_NAMES = frozenset(
         "aseprite_fill_region",
         "aseprite_generate_inbetweens",
         "aseprite_import_frames",
+        "aseprite_import_tilemap_data",
         "aseprite_import_palette",
         "aseprite_import_sprite_sheet",
         "aseprite_merge_layers",
         "aseprite_pack_atlas",
+        "aseprite_optimize_linked_cels",
         "aseprite_palette_cycle",
         "aseprite_quantize_palette",
         "aseprite_render",
         "aseprite_render_contact_sheet",
+        "aseprite_render_layer_variants",
         "aseprite_replace_color",
         "aseprite_resize_canvas",
         "aseprite_resize_sprite",
@@ -247,4 +253,3 @@ class ToolRegistrar:
             return function
 
         return decorate
-

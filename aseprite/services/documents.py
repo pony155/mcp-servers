@@ -13,6 +13,7 @@ from ..models import (
     MutationResult,
     PixelInput,
     PropertyEditOperation,
+    PropertyInspectionResult,
     SliceEditOperation,
 )
 from ..paths import SPRITE_DOCUMENT_EXTENSIONS, publish_file, sha256_file, temporary_sibling
@@ -473,4 +474,67 @@ class DocumentsService(AsepriteRuntime):
             payload={"mode": mode,
                      "profile_path": self._process_path(profile) if profile else None},
             additional_lock_paths=[profile] if profile else None,
+        )
+
+    async def inspect_properties(
+        self,
+        source_path: str,
+        *,
+        targets: list[str],
+        include_empty: bool,
+    ) -> PropertyInspectionResult:
+        source = self.paths.existing_file(
+            source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS
+        )
+        async with self._locked([source]):
+            result = await self._bridge(
+                "inspect_properties",
+                {
+                    "source_path": self._process_path(source),
+                    "targets": targets,
+                    "include_empty": include_empty,
+                    "max_items": 16_384,
+                },
+            )
+            result.update(source_path=str(source), sha256=sha256_file(source))
+        return PropertyInspectionResult.model_validate(result)
+
+    async def copy_layer_tree(
+        self,
+        source_path: str,
+        donor_path: str,
+        output_path: str,
+        *,
+        layer: str,
+        target_parent: str | None,
+        new_name: str | None,
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        donor = self.paths.existing_file(
+            donor_path, extensions=SPRITE_DOCUMENT_EXTENSIONS
+        )
+        output = self.paths.output_file(
+            output_path, extensions=SPRITE_DOCUMENT_EXTENSIONS, overwrite=overwrite
+        )
+        if donor == output:
+            raise AsepriteMCPError(
+                "PATH_NOT_ALLOWED", "output_path must differ from donor_path"
+            )
+        return await self._bridge_mutation(
+            "copy_layer_tree",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "donor_path": self._process_path(donor),
+                "layer": layer,
+                "target_parent": target_parent,
+                "new_name": new_name,
+                "max_layers": MAX_LAYERS,
+                "max_frames": MAX_FRAMES,
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            },
+            additional_lock_paths=[donor],
         )

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Shared Asset Library"
+  short_description: "Move reusable layer trees between sprite documents"
+  default_prompt: "Use $aseprite-shared-asset-library-production to copy and verify this shared asset."

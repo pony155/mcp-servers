@@ -11,6 +11,7 @@ from .common import (
     PointInfo,
     RectangleInfo,
     RectangleInput,
+    RenderResult,
     SpriteSheetResult,
     StrictModel,
 )
@@ -141,3 +142,30 @@ class BitmapFontResult(StrictModel):
     data: FileResult
     glyph_count: int
     line_height: int
+
+
+class LayerVariantInput(StrictModel):
+    name: Annotated[str, Field(min_length=1, max_length=128)]
+    output_path: str
+    layers: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=256)]],
+        Field(min_length=1, max_length=128),
+    ]
+    frame: Annotated[int | None, Field(ge=0)] = None
+    tag: Annotated[str | None, Field(min_length=1, max_length=128)] = None
+    scale: Annotated[float, Field(ge=0.1, le=16)] = 1.0
+
+
+class LayerVariantItem(StrictModel):
+    name: str
+    ok: bool
+    result: RenderResult | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+
+
+class LayerVariantResult(StrictModel):
+    source_path: str
+    succeeded: int
+    failed: int
+    items: list[LayerVariantItem]

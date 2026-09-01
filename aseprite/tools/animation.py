@@ -224,4 +224,27 @@ def register_animation_tools(
             expected_source_hash=expected_source_hash,
         )
 
+    @tools.tool()
+    async def aseprite_optimize_linked_cels(
+        source_path: SpriteSourcePath,
+        output_path: SpriteOutputPath,
+        layers: Annotated[list[str] | None, Field(max_length=128)] = None,
+        frames: Annotated[
+            list[Annotated[int, Field(ge=0)]] | None,
+            Field(max_length=256),
+        ] = None,
+        overwrite: Overwrite = False,
+        expected_source_hash: ExpectedSourceHash = None,
+    ) -> MutationResult:
+        """Link exactly identical selected cel images without deleting animation frames."""
+
+        return await adapter.optimize_linked_cels(
+            source_path,
+            output_path,
+            layers=layers or [],
+            frames=frames or [],
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+        )
+
     return tools.registered_count

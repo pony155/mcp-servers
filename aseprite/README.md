@@ -365,6 +365,13 @@ are returned by `aseprite_inspect_sprite`. Tilemap previews compose explicit til
 editing the source. Nine-slice previews preserve fixed corners and borders while nearest-neighbor
 scaling the center and edge regions into a bounded inline PNG.
 
+Property inspection now provides the read side of scalar metadata workflows across sprite, layer,
+cel, tag, slice, tileset, and tile objects. Versioned tilemap JSON can be exported and imported with
+explicit cell transforms and bounded top-level layer creation. Named layer variants render through
+the existing safe export boundary. Exact duplicate cel images can be linked without deleting
+frames, and compatible transparent image-layer trees can be copied between documents; background
+and tilemap layer copying is intentionally rejected.
+
 ### Sprite-production skill
 
 Distributable Codex skills are under [`skills`](skills). Use the generated

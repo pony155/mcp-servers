@@ -35,12 +35,14 @@ FAMILIES = {
         "aseprite-pixel-art-qa",
         "aseprite-pixel-art-restoration",
         "aseprite-retro-hardware-constraint-production",
+        "aseprite-document-optimization",
     },
     "tiles-and-world": {
         "aseprite-autotile-authoring",
         "aseprite-environment-prop-production",
         "aseprite-isometric-tile-production",
         "aseprite-tile-metadata-authoring",
+        "aseprite-tilemap-level-production",
         "aseprite-tileset-production",
     },
     "ui-and-fonts": {
@@ -55,7 +57,9 @@ FAMILIES = {
         "aseprite-collision-shape-authoring",
         "aseprite-engine-export-profile",
         "aseprite-game-export",
+        "aseprite-modular-variant-export",
         "aseprite-release-asset-audit",
+        "aseprite-shared-asset-library-production",
     },
 }
 
@@ -66,6 +70,11 @@ PROFILE_BY_FAMILY = {
     "tiles-and-world": "tiles",
     "ui-and-fonts": "sprite",
     "export-and-pipeline": "export",
+}
+
+PROFILE_BY_SKILL = {
+    "aseprite-document-optimization": "animation",
+    "aseprite-shared-asset-library-production": "sprite",
 }
 
 
@@ -107,7 +116,9 @@ def main() -> None:
             {
                 "name": name,
                 "family": family,
-                "recommended_tool_profile": PROFILE_BY_FAMILY[family],
+                "recommended_tool_profile": PROFILE_BY_SKILL.get(
+                    name, PROFILE_BY_FAMILY[family]
+                ),
                 "description": description,
                 "path": f"{name}/SKILL.md",
             }

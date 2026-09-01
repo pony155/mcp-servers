@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Tilemap Levels"
+  short_description: "Author and exchange engine-ready tilemap levels"
+  default_prompt: "Use $aseprite-tilemap-level-production to build and validate this tilemap level."

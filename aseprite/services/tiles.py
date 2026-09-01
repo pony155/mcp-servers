@@ -7,6 +7,8 @@ from ..errors import AsepriteMCPError
 from ..models import (
     MutationResult,
     TilemapCellInput,
+    TilemapDataExportResult,
+    TilemapDocumentData,
     TileMetadataEditOperation,
     TileMetadataResult,
     TilesetEditOperation,
@@ -202,4 +204,108 @@ class TilesService(AsepriteRuntime):
             expected_source_hash=expected_source_hash,
             payload={"tileset": tileset,
                      "operations": [operation.model_dump() for operation in operations]},
+        )
+
+    async def export_tilemap_data(
+        self,
+        source_path: str,
+        data_output_path: str,
+        *,
+        layers: list[str],
+        frames: list[int],
+        overwrite: bool,
+    ) -> TilemapDataExportResult:
+        if len(layers) > 128 or len(frames) > 256 or any(frame < 0 for frame in frames):
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "tilemap selection exceeds limits")
+        source = self.paths.existing_file(
+            source_path, extensions=SPRITE_DOCUMENT_EXTENSIONS
+        )
+        output = self.paths.output_file(
+            data_output_path, extensions=frozenset({".json"}), overwrite=overwrite
+        )
+        if source == output:
+            raise AsepriteMCPError("PATH_NOT_ALLOWED", "tilemap output must differ from source")
+        temporary = temporary_sibling(output)
+        async with self._locked([source, output]):
+            try:
+                result = await self._bridge(
+                    "export_tilemap_data",
+                    {
+                        "source_path": self._process_path(source),
+                        "data_output_path": self._process_path(temporary),
+                        "layers": layers,
+                        "frames": frames,
+                        "max_cells": 262_144,
+                    },
+                )
+                if not temporary.is_file():
+                    raise AsepriteMCPError(
+                        "ASEPRITE_FAILED", "Aseprite did not create tilemap JSON"
+                    )
+                publish_file(temporary, output)
+            finally:
+                temporary.unlink(missing_ok=True)
+        return TilemapDataExportResult(
+            source_path=str(source),
+            sha256=sha256_file(source),
+            data=self._file_result(output),
+            layer_count=result["layer_count"],
+            frame_count=result["frame_count"],
+            cell_count=result["cell_count"],
+        )
+
+    async def import_tilemap_data(
+        self,
+        source_path: str,
+        data_path: str,
+        output_path: str,
+        *,
+        create_missing_layers: bool,
+        clear_existing: bool,
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        data_file = self.paths.existing_file(data_path, extensions=frozenset({".json"}))
+        if data_file.stat().st_size > self.settings.max_capture_bytes:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "tilemap JSON exceeds input size limit")
+        try:
+            document = TilemapDocumentData.model_validate_json(
+                data_file.read_text(encoding="utf-8")
+            )
+        except ValueError as exc:
+            raise AsepriteMCPError("INVALID_INPUT", f"invalid tilemap JSON: {exc}") from exc
+        cell_count = sum(
+            len(frame.cells) for layer in document.layers for frame in layer.frames
+        )
+        if cell_count > 262_144:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "tilemap JSON exceeds cell limit")
+        layer_names = [layer.layer for layer in document.layers]
+        if len(set(layer_names)) != len(layer_names):
+            raise AsepriteMCPError("INVALID_INPUT", "tilemap layer paths must be unique")
+        for layer in document.layers:
+            frame_numbers = [frame.frame for frame in layer.frames]
+            if len(set(frame_numbers)) != len(frame_numbers):
+                raise AsepriteMCPError(
+                    "INVALID_INPUT", f"tilemap frames must be unique in layer {layer.layer}"
+                )
+            for frame in layer.frames:
+                coordinates = [(cell.x, cell.y) for cell in frame.cells]
+                if len(set(coordinates)) != len(coordinates):
+                    raise AsepriteMCPError(
+                        "INVALID_INPUT",
+                        f"tilemap cells must be unique in {layer.layer} frame {frame.frame}",
+                    )
+        return await self._bridge_mutation(
+            "import_tilemap_data",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "document": document.model_dump(),
+                "create_missing_layers": create_missing_layers,
+                "clear_existing": clear_existing,
+                "max_cells": 262_144,
+            },
+            additional_lock_paths=[data_file],
         )

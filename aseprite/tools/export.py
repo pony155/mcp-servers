@@ -16,6 +16,8 @@ from ..models import (
     ContactSheetResult,
     FrameExportInput,
     FrameExportResult,
+    LayerVariantInput,
+    LayerVariantResult,
     RenderResult,
     SliceExtractionInput,
     SliceExtractionResult,
@@ -208,6 +210,18 @@ def register_export_tools(
             source_path, image_output_path, data_output_path, glyphs=glyphs,
             font_name=font_name, line_height=line_height, columns=columns,
             padding=padding, overwrite=overwrite,
+        )
+
+    @tools.tool()
+    async def aseprite_render_layer_variants(
+        source_path: SourcePath,
+        variants: Annotated[list[LayerVariantInput], Field(min_length=1, max_length=128)],
+        overwrite: Overwrite = False,
+    ) -> LayerVariantResult:
+        """Render named layer combinations to explicit PNG or GIF outputs."""
+
+        return await adapter.render_layer_variants(
+            source_path, variants=variants, overwrite=overwrite
         )
 
     return tools.registered_count

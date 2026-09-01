@@ -18,6 +18,9 @@ from ..models import (
     FrameExportInput,
     FrameExportItem,
     FrameExportResult,
+    LayerVariantInput,
+    LayerVariantItem,
+    LayerVariantResult,
     RenderResult,
     SliceExtractionInput,
     SliceExtractionItem,
@@ -576,4 +579,60 @@ class ExportService(AsepriteRuntime):
         return BitmapFontResult(
             image=self._file_result(image_output), data=self._file_result(data_output),
             glyph_count=len(glyphs), line_height=line_height,
+        )
+
+    async def render_layer_variants(
+        self,
+        source_path: str,
+        *,
+        variants: list[LayerVariantInput],
+        overwrite: bool,
+    ) -> LayerVariantResult:
+        if not 1 <= len(variants) <= 128:
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "variants must contain 1 to 128 items")
+        names = [variant.name for variant in variants]
+        source = self.paths.existing_file(source_path, extensions=SPRITE_INPUT_EXTENSIONS)
+        outputs = [
+            self.paths.output_file(
+                variant.output_path, extensions=RENDER_EXTENSIONS, overwrite=overwrite
+            )
+            for variant in variants
+        ]
+        if (
+            len(set(names)) != len(names)
+            or len(set(outputs)) != len(outputs)
+            or source in outputs
+        ):
+            raise AsepriteMCPError(
+                "INVALID_INPUT",
+                "variant names and output paths must be unique and differ from the source",
+            )
+        items: list[LayerVariantItem] = []
+        for variant in variants:
+            try:
+                result = await self.render(
+                    source_path,
+                    variant.output_path,
+                    frame=variant.frame,
+                    tag=variant.tag,
+                    layers=variant.layers,
+                    scale=variant.scale,
+                    overwrite=overwrite,
+                )
+                items.append(LayerVariantItem(name=variant.name, ok=True, result=result))
+            except AsepriteMCPError as exc:
+                items.append(
+                    LayerVariantItem(
+                        name=variant.name,
+                        ok=False,
+                        error_code=exc.code,
+                        error_message=exc.message,
+                    )
+                )
+        succeeded = sum(item.ok for item in items)
+        return LayerVariantResult(
+            source_path=str(source),
+            succeeded=succeeded,
+            failed=len(items) - succeeded,
+            items=items,
         )

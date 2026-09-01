@@ -15,9 +15,10 @@ from ..models import (
     MutationResult,
     PixelInput,
     PropertyEditOperation,
+    PropertyInspectionResult,
     SliceEditOperation,
 )
-from .inputs import Overwrite, SpriteOutputPath
+from .inputs import ExpectedSourceHash, Overwrite, SourcePath, SpriteOutputPath, SpriteSourcePath
 
 
 def register_documents_tools(
@@ -422,6 +423,46 @@ def register_documents_tools(
         return await adapter.edit_color_space(
             source_path, output_path, mode=mode, profile_path=profile_path,
             overwrite=overwrite, expected_source_hash=expected_source_hash,
+        )
+
+    @tools.tool()
+    async def aseprite_inspect_properties(
+        source_path: SourcePath,
+        targets: Annotated[
+            list[Literal["sprite", "layer", "tag", "slice", "cel", "tileset", "tile"]]
+            | None,
+            Field(max_length=7),
+        ] = None,
+        include_empty: bool = False,
+    ) -> PropertyInspectionResult:
+        """Inspect scalar properties, user data, and timeline colors across document objects."""
+
+        return await adapter.inspect_properties(
+            source_path, targets=targets or [], include_empty=include_empty
+        )
+
+    @tools.tool()
+    async def aseprite_copy_layer_tree(
+        source_path: SpriteSourcePath,
+        donor_path: SpriteSourcePath,
+        output_path: SpriteOutputPath,
+        layer: Annotated[str, Field(min_length=1, max_length=256)],
+        target_parent: Annotated[str | None, Field(min_length=1, max_length=256)] = None,
+        new_name: Annotated[str | None, Field(min_length=1, max_length=128)] = None,
+        overwrite: Overwrite = False,
+        expected_source_hash: ExpectedSourceHash = None,
+    ) -> MutationResult:
+        """Copy one image-layer or group hierarchy from a compatible donor document."""
+
+        return await adapter.copy_layer_tree(
+            source_path,
+            donor_path,
+            output_path,
+            layer=layer,
+            target_parent=target_parent,
+            new_name=new_name,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
         )
 
     return tools.registered_count

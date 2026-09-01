@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "tool_count": 79,
+  "tool_count": 85,
   "profiles": [
     {
       "name": "core",
@@ -18,7 +18,7 @@
         "palettes",
         "pixels"
       ],
-      "tool_count": 49
+      "tool_count": 52
     },
     {
       "name": "animation",
@@ -31,7 +31,7 @@
         "pixels",
         "validation"
       ],
-      "tool_count": 70
+      "tool_count": 74
     },
     {
       "name": "tiles",
@@ -44,7 +44,7 @@
         "tiles",
         "validation"
       ],
-      "tool_count": 69
+      "tool_count": 74
     },
     {
       "name": "export",
@@ -52,7 +52,7 @@
         "core",
         "export"
       ],
-      "tool_count": 13
+      "tool_count": 14
     },
     {
       "name": "qa",
@@ -74,7 +74,7 @@
         "tiles",
         "validation"
       ],
-      "tool_count": 79
+      "tool_count": 85
     }
   ],
   "tools": [
@@ -200,6 +200,20 @@
       "output": "file",
       "requires_aseprite": true,
       "description": "Copy or link an existing image cel to another layer/frame location."
+    },
+    {
+      "name": "aseprite_copy_layer_tree",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Copy one image-layer or group hierarchy from a compatible donor document."
     },
     {
       "name": "aseprite_create_animation",
@@ -539,6 +553,18 @@
       "description": "Export a PNG sprite sheet and JSON-array frame metadata."
     },
     {
+      "name": "aseprite_export_tilemap_data",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export selected tilemap layers and frames as deterministic versioned JSON."
+    },
+    {
       "name": "aseprite_export_tileset",
       "category": "tiles",
       "profiles": [
@@ -693,6 +719,18 @@
       "description": "Import a PNG grid as an editable Aseprite animation with one cel per frame."
     },
     {
+      "name": "aseprite_import_tilemap_data",
+      "category": "tiles",
+      "profiles": [
+        "tiles",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Apply validated versioned tilemap JSON to existing or new top-level tilemap layers."
+    },
+    {
       "name": "aseprite_inspect_cels",
       "category": "validation",
       "profiles": [
@@ -705,6 +743,20 @@
       "output": "structured",
       "requires_aseprite": true,
       "description": "Inspect cel geometry, opacity, z-index, image identity, and linked groups."
+    },
+    {
+      "name": "aseprite_inspect_properties",
+      "category": "documents",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Inspect scalar properties, user data, and timeline colors across document objects."
     },
     {
       "name": "aseprite_inspect_sprite",
@@ -777,6 +829,18 @@
       "output": "file",
       "requires_aseprite": true,
       "description": "Merge one layer downward or flatten all/visible layers in an output revision."
+    },
+    {
+      "name": "aseprite_optimize_linked_cels",
+      "category": "animation",
+      "profiles": [
+        "animation",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Link exactly identical selected cel images without deleting animation frames."
     },
     {
       "name": "aseprite_pack_atlas",
@@ -932,6 +996,21 @@
       "output": "file",
       "requires_aseprite": true,
       "description": "Render every frame into a labelled PNG review grid."
+    },
+    {
+      "name": "aseprite_render_layer_variants",
+      "category": "export",
+      "profiles": [
+        "sprite",
+        "animation",
+        "tiles",
+        "export",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Render named layer combinations to explicit PNG or GIF outputs."
     },
     {
       "name": "aseprite_render_tilemap_preview",

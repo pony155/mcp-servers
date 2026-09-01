@@ -10,6 +10,7 @@ from ..capabilities import CapabilityRegistry, ToolRegistrar
 from ..models import (
     MutationResult,
     TilemapCellInput,
+    TilemapDataExportResult,
     TileMetadataEditOperation,
     TileMetadataResult,
     TilesetEditOperation,
@@ -17,7 +18,14 @@ from ..models import (
     TilesetInspectionResult,
     TilesetValidationResult,
 )
-from .inputs import ExpectedSourceHash, Overwrite, SpriteOutputPath, SpriteSourcePath
+from .inputs import (
+    ExpectedSourceHash,
+    OutputPath,
+    Overwrite,
+    SourcePath,
+    SpriteOutputPath,
+    SpriteSourcePath,
+)
 
 
 def register_tiles_tools(
@@ -153,6 +161,49 @@ def register_tiles_tools(
         return await adapter.edit_tile_metadata(
             source_path, output_path, tileset=tileset, operations=operations,
             overwrite=overwrite, expected_source_hash=expected_source_hash,
+        )
+
+    @tools.tool()
+    async def aseprite_export_tilemap_data(
+        source_path: SpriteSourcePath,
+        data_output_path: OutputPath,
+        layers: Annotated[list[str] | None, Field(max_length=128)] = None,
+        frames: Annotated[
+            list[Annotated[int, Field(ge=0)]] | None,
+            Field(max_length=256),
+        ] = None,
+        overwrite: Overwrite = False,
+    ) -> TilemapDataExportResult:
+        """Export selected tilemap layers and frames as deterministic versioned JSON."""
+
+        return await adapter.export_tilemap_data(
+            source_path,
+            data_output_path,
+            layers=layers or [],
+            frames=frames or [],
+            overwrite=overwrite,
+        )
+
+    @tools.tool()
+    async def aseprite_import_tilemap_data(
+        source_path: SpriteSourcePath,
+        data_path: SourcePath,
+        output_path: SpriteOutputPath,
+        create_missing_layers: bool = False,
+        clear_existing: bool = True,
+        overwrite: Overwrite = False,
+        expected_source_hash: ExpectedSourceHash = None,
+    ) -> MutationResult:
+        """Apply validated versioned tilemap JSON to existing or new top-level tilemap layers."""
+
+        return await adapter.import_tilemap_data(
+            source_path,
+            data_path,
+            output_path,
+            create_missing_layers=create_missing_layers,
+            clear_existing=clear_existing,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
         )
 
     return tools.registered_count

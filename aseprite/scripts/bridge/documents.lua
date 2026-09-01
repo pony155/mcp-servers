@@ -545,3 +545,132 @@ operations.edit_color_space = function(input)
   sprite:close()
   return result
 end
+
+local function inspected_scalar_properties(properties)
+  local result = {}
+  for key, value in pairs(properties) do
+    local kind = type(value)
+    if type(key) == "string" and
+      (kind == "string" or kind == "number" or kind == "boolean") then
+      result[key] = value
+    end
+  end
+  return result
+end
+
+operations.inspect_properties = function(input)
+  local sprite = open_sprite(input.source_path)
+  local selected = {}
+  for _, target in ipairs(input.targets or {}) do selected[target] = true end
+  local all = next(selected) == nil
+  local items = {}
+  local function add(target, identifier, object, frame)
+    local properties = inspected_scalar_properties(object.properties)
+    local data = object.data or ""
+    local color = object.color or Color { r=0, g=0, b=0, a=0 }
+    if input.include_empty or data ~= "" or next(properties) ~= nil or color.alpha > 0 then
+      if #items >= input.max_items then fail("LIMIT_EXCEEDED", "property inspection exceeds item limit") end
+      table.insert(items, {target=target, identifier=identifier, frame=frame,
+        data=data, color=rgba_hex(color.red, color.green, color.blue, color.alpha),
+        properties=properties})
+    end
+  end
+  if all or selected.sprite then add("sprite", "sprite", sprite, nil) end
+  local function walk(layers, prefix)
+    for _, layer in ipairs(layers) do
+      local path = prefix == "" and layer.name or prefix .. "/" .. layer.name
+      if all or selected.layer then add("layer", path, layer, nil) end
+      if all or selected.cel then
+        for _, cel in ipairs(layer.cels or {}) do
+          add("cel", path, cel, cel.frame.frameNumber - 1)
+        end
+      end
+      if layer.isGroup then walk(layer.layers, path) end
+    end
+  end
+  walk(sprite.layers, "")
+  if all or selected.tag then
+    for _, tag in ipairs(sprite.tags) do add("tag", tag.name, tag, nil) end
+  end
+  if all or selected.slice then
+    for _, slice in ipairs(sprite.slices) do add("slice", slice.name, slice, nil) end
+  end
+  for _, tileset in ipairs(sprite.tilesets) do
+    if all or selected.tileset then add("tileset", tileset.name, tileset, nil) end
+    if all or selected.tile then
+      for index = 0, #tileset - 1 do
+        add("tile", tileset.name .. "#" .. tostring(index), tileset:tile(index), nil)
+      end
+    end
+  end
+  sprite:close()
+  return {items=items}
+end
+
+operations.copy_layer_tree = function(input)
+  local sprite = open_sprite(input.source_path)
+  local donor = open_sprite(input.donor_path)
+  if sprite.width ~= donor.width or sprite.height ~= donor.height or
+    sprite.colorMode ~= donor.colorMode then
+    donor:close(); sprite:close()
+    fail("INVALID_INPUT", "source and donor canvas dimensions and color mode must match")
+  end
+  local source_layer = find_layer(donor, input.layer)
+  local target_parent = nil
+  if input.target_parent ~= nil then
+    target_parent = find_layer(sprite, input.target_parent)
+    if not target_parent.isGroup then
+      donor:close(); sprite:close(); fail("INVALID_SELECTOR", "target_parent must be a group")
+    end
+  end
+  local layer_count = 0
+  local function verify(layer)
+    layer_count = layer_count + 1
+    if layer_count > input.max_layers then fail("LIMIT_EXCEEDED", "layer tree exceeds limit") end
+    if layer.isTilemap or layer.isBackground then
+      fail("INVALID_INPUT", "copy_layer_tree supports transparent image layers and groups only")
+    end
+    if layer.isGroup then for _, child in ipairs(layer.layers) do verify(child) end end
+  end
+  verify(source_layer)
+  if #donor.frames > input.max_frames then
+    donor:close(); sprite:close(); fail("LIMIT_EXCEEDED", "donor frame count exceeds limit")
+  end
+  while #sprite.frames < #donor.frames do
+    local frame = sprite:newEmptyFrame()
+    frame.duration = donor.frames[frame.frameNumber].duration
+  end
+  local visits = 0
+  local function copy_fields(source, target)
+    target.data = source.data
+    target.color = source.color
+    for key, value in pairs(source.properties) do target.properties[key] = value end
+  end
+  local function clone(source, parent, top)
+    local target = source.isGroup and sprite:newGroup() or sprite:newLayer()
+    target.name = top and (input.new_name or source.name) or source.name
+    if parent ~= nil then target.parent = parent end
+    target.isVisible = source.isVisible
+    target.opacity = source.opacity
+    copy_fields(source, target)
+    if source.isGroup then
+      for _, child in ipairs(source.layers) do clone(child, target, false) end
+    else
+      target.blendMode = source.blendMode
+      for _, cel in ipairs(source.cels) do
+        visits = visits + cel.image.width * cel.image.height
+        if visits > input.max_pixel_visits then fail("LIMIT_EXCEEDED", "layer copy exceeds pixel limit") end
+        local copied = sprite:newCel(target, cel.frame.frameNumber, Image(cel.image), cel.position)
+        copied.opacity = cel.opacity
+        copied.zIndex = cel.zIndex
+        copy_fields(cel, copied)
+      end
+    end
+    return target
+  end
+  app.transaction("MCP copy layer tree", function() clone(source_layer, target_parent, true) end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  donor:close(); sprite:close()
+  return result
+end

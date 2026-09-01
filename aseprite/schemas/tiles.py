@@ -56,6 +56,39 @@ class TilemapCellInput(StrictModel):
     flip_y: bool = False
     flip_diagonal: bool = False
 
+
+class TilemapFrameData(StrictModel):
+    frame: Annotated[int, Field(ge=0, le=255)]
+    x: Annotated[int, Field(ge=-8192, le=8192)] = 0
+    y: Annotated[int, Field(ge=-8192, le=8192)] = 0
+    width_cells: Annotated[int, Field(ge=1, le=4096)]
+    height_cells: Annotated[int, Field(ge=1, le=4096)]
+    cells: Annotated[list[TilemapCellInput], Field(max_length=262_144)] = Field(
+        default_factory=list
+    )
+
+
+class TilemapLayerData(StrictModel):
+    layer: Annotated[str, Field(min_length=1, max_length=256)]
+    tileset: Annotated[str, Field(min_length=1, max_length=128)]
+    frames: Annotated[list[TilemapFrameData], Field(min_length=1, max_length=256)]
+
+
+class TilemapDocumentData(StrictModel):
+    schema_version: Literal[1] = 1
+    canvas_width: Annotated[int, Field(ge=1, le=4096)]
+    canvas_height: Annotated[int, Field(ge=1, le=4096)]
+    layers: Annotated[list[TilemapLayerData], Field(min_length=1, max_length=128)]
+
+
+class TilemapDataExportResult(StrictModel):
+    source_path: str
+    sha256: str
+    data: FileResult
+    layer_count: int
+    frame_count: int
+    cell_count: int
+
 class TilesetExportResult(StrictModel):
     image: FileResult
     data: FileResult

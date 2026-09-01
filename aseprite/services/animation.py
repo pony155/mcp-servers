@@ -280,3 +280,28 @@ class AnimationService(AsepriteRuntime):
             payload={"tag": tag, "output_tag": output_tag, "repetitions": repetitions,
                      "link_images": link_images, "max_frames": MAX_FRAMES},
         )
+
+    async def optimize_linked_cels(
+        self,
+        source_path: str,
+        output_path: str,
+        *,
+        layers: list[str],
+        frames: list[int],
+        overwrite: bool,
+        expected_source_hash: str | None,
+    ) -> MutationResult:
+        if len(layers) > 128 or len(frames) > MAX_FRAMES or any(frame < 0 for frame in frames):
+            raise AsepriteMCPError("LIMIT_EXCEEDED", "cel selection exceeds limits")
+        return await self._bridge_mutation(
+            "optimize_linked_cels",
+            source_path,
+            output_path,
+            overwrite=overwrite,
+            expected_source_hash=expected_source_hash,
+            payload={
+                "layers": layers,
+                "frames": frames,
+                "max_pixel_visits": MAX_VALIDATION_PIXEL_VISITS,
+            },
+        )

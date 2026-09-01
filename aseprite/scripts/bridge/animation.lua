@@ -422,3 +422,47 @@ operations.bake_tag_direction = function(input)
   sprite:close()
   return result
 end
+
+operations.optimize_linked_cels = function(input)
+  local sprite = open_sprite(input.source_path)
+  local selected_layers, selected_frames = {}, {}
+  for _, path in ipairs(input.layers or {}) do selected_layers[path] = true end
+  for _, frame in ipairs(input.frames or {}) do
+    if frame >= #sprite.frames then sprite:close(); fail("INVALID_SELECTOR", "frame is outside sprite") end
+    selected_frames[frame] = true
+  end
+  local all_layers = next(selected_layers) == nil
+  local all_frames = next(selected_frames) == nil
+  local canonical, visits = {}, 0
+  local function path_of(layer)
+    local path, parent = layer.name, layer.parent
+    while parent ~= nil and parent.name ~= nil do
+      path = parent.name .. "/" .. path
+      parent = parent.parent
+    end
+    return path
+  end
+  app.transaction("MCP optimize linked cels", function()
+    for _, cel in ipairs(sprite.cels) do
+      local frame = cel.frame.frameNumber - 1
+      if (all_layers or selected_layers[path_of(cel.layer)]) and
+        (all_frames or selected_frames[frame]) and not cel.layer.isTilemap then
+        local image = cel.image
+        local values = {tostring(image.width), "x", tostring(image.height), ":"}
+        for pixel in image:pixels() do
+          visits = visits + 1
+          if visits > input.max_pixel_visits then fail("LIMIT_EXCEEDED", "cel optimization exceeds pixel limit") end
+          table.insert(values, tostring(pixel()))
+          table.insert(values, ",")
+        end
+        local signature = table.concat(values)
+        if canonical[signature] == nil then canonical[signature] = image
+        elseif canonical[signature].id ~= image.id then cel.image = canonical[signature] end
+      end
+    end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end

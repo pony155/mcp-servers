@@ -402,6 +402,11 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
   motion reports provide read-only evidence for spacing and cadence review.
 - Collision contour generation emits bounded, simplified outer polygons, while bitmap-font export
   atomically publishes a PNG atlas and JSON metrics from explicit glyph rectangles.
+- Property inspection completes scalar metadata round trips, and versioned tilemap JSON provides
+  bounded engine-facing layout export and import with explicit tile transforms.
+- Layer-variant rendering batches named visibility combinations, exact duplicate images can be
+  linked without removing frames, and compatible transparent layer trees can be copied between
+  documents without granting arbitrary script access.
 
 All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
 normalized mutation results, and optimistic source-hash guards where a source document is edited.
@@ -412,7 +417,8 @@ and palette-design skills. Additional QA, autotile, UI, fighting-game, color-var
 pipeline skills orchestrate the narrow MCP tools without adding new file authority.
 Palette-cycle, restoration, animation-cleanup, RPG-icon, portrait-expression, and looping-background
 skills cover the new focused production workflows while retaining the same file-safety boundary.
-Tile-metadata, color-managed export, modular-character, collision-shape, cutscene, and retro-hardware
+Tile-metadata, tilemap-level, color-managed export, modular-character, modular-variant,
+shared-library, document-optimization, collision-shape, cutscene, and retro-hardware
 skills add engine-specialized workflows without expanding the MCP server's authority.
 
 ## 9. Resources

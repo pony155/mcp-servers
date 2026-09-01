@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Document Optimization"
+  short_description: "Optimize duplicate cels and document storage safely"
+  default_prompt: "Use $aseprite-document-optimization to optimize this sprite without visual changes."

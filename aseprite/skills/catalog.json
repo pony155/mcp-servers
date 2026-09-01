@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "skill_count": 38,
+  "skill_count": 42,
   "skills": [
     {
       "name": "aseprite-accessibility-review",
@@ -108,6 +108,13 @@
       "path": "aseprite-directional-animation/SKILL.md"
     },
     {
+      "name": "aseprite-document-optimization",
+      "family": "color-and-qa",
+      "recommended_tool_profile": "animation",
+      "description": "Reduce avoidable Aseprite document weight without changing intended artwork or timing. Use for duplicate cel images, empty bounds, excess palette entries, or release-size cleanup.",
+      "path": "aseprite-document-optimization/SKILL.md"
+    },
+    {
       "name": "aseprite-engine-export-profile",
       "family": "export-and-pipeline",
       "recommended_tool_profile": "export",
@@ -155,6 +162,13 @@
       "recommended_tool_profile": "animation",
       "description": "Produce layer-compatible modular characters in Aseprite. Use for paper dolls, equipment swaps, armor sets, hair variants, or independently composited body parts.",
       "path": "aseprite-modular-character-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-modular-variant-export",
+      "family": "export-and-pipeline",
+      "recommended_tool_profile": "export",
+      "description": "Export controlled layer combinations from Aseprite. Use for equipment sets, paper dolls, portraits, skins, UI states, or other named variants composed from shared layers.",
+      "path": "aseprite-modular-variant-export/SKILL.md"
     },
     {
       "name": "aseprite-nine-slice-ui-production",
@@ -227,6 +241,13 @@
       "path": "aseprite-rpg-icon-set-production/SKILL.md"
     },
     {
+      "name": "aseprite-shared-asset-library-production",
+      "family": "export-and-pipeline",
+      "recommended_tool_profile": "sprite",
+      "description": "Maintain reusable Aseprite layer and group libraries. Use when effects, equipment, UI parts, poses, or other image-layer trees must move safely between compatible documents.",
+      "path": "aseprite-shared-asset-library-production/SKILL.md"
+    },
+    {
       "name": "aseprite-sprite-production",
       "family": "foundation",
       "recommended_tool_profile": "sprite",
@@ -239,6 +260,13 @@
       "recommended_tool_profile": "tiles",
       "description": "Author engine-facing properties on Aseprite tiles and tilesets. Use when terrain types, collisions, costs, variants, triggers, or adjacency semantics must accompany tile pixels.",
       "path": "aseprite-tile-metadata-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-tilemap-level-production",
+      "family": "tiles-and-world",
+      "recommended_tool_profile": "tiles",
+      "description": "Build and exchange tilemap level layouts in Aseprite. Use when tile layers, transforms, engine JSON, round trips, or level-data validation matter beyond tileset artwork itself.",
+      "path": "aseprite-tilemap-level-production/SKILL.md"
     },
     {
       "name": "aseprite-tileset-production",

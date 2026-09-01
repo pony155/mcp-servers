@@ -62,7 +62,7 @@ operations.edit_tilemap = function(input)
   local frame=input.frame+1;if frame>#sprite.frames then fail("INVALID_SELECTOR","frame outside sprite") end
   app.transaction("MCP edit tilemap",function() local cel=layer:cel(frame);if cel==nil then cel=sprite:newCel(layer,frame) end;local image=Image(cel.image)
     for _,cell in ipairs(input.cells) do if cell.x>=image.width or cell.y>=image.height then fail("INVALID_SELECTOR","tilemap cell outside map") end
-      local flags=0;if cell.flip_x then flags=flags+0x20000000 end;if cell.flip_y then flags=flags+0x40000000 end;if cell.flip_diagonal then flags=flags+0x80000000 end
+      local flags=0;if cell.flip_x then flags=flags+0x80000000 end;if cell.flip_y then flags=flags+0x40000000 end;if cell.flip_diagonal then flags=flags+0x20000000 end
       image:drawPixel(cell.x,cell.y,app.pixelColor.tile(cell.tile_index,flags)) end;cel.image=image end)
   save_copy(sprite,input.output_path);local result=inspect_sprite(sprite,false,input.output_path);sprite:close();return result
 end
@@ -235,6 +235,133 @@ operations.edit_tile_metadata = function(input)
       if operation.action == "set" then target.properties[operation.key] = operation.value
       elseif operation.action == "remove" then target.properties[operation.key] = nil
       else fail("INVALID_INPUT", "unsupported tile metadata action") end
+    end
+  end)
+  save_copy(sprite, input.output_path)
+  local result = inspect_sprite(sprite, false, input.output_path)
+  sprite:close()
+  return result
+end
+
+local function tile_flag_set(flags, mask)
+  return math.floor(flags / mask) % 2 == 1
+end
+
+operations.export_tilemap_data = function(input)
+  local sprite = open_sprite(input.source_path)
+  local selected_layers, selected_frames = {}, {}
+  for _, path in ipairs(input.layers or {}) do selected_layers[path] = true end
+  for _, frame in ipairs(input.frames or {}) do
+    if frame >= #sprite.frames then sprite:close(); fail("INVALID_SELECTOR", "frame is outside sprite") end
+    selected_frames[frame] = true
+  end
+  local all_layers = next(selected_layers) == nil
+  local all_frames = next(selected_frames) == nil
+  local layers, cell_count, frame_count = {}, 0, 0
+  local function walk(items, prefix)
+    for _, layer in ipairs(items) do
+      local path = prefix == "" and layer.name or prefix .. "/" .. layer.name
+      if layer.isTilemap and (all_layers or selected_layers[path]) then
+        local frames = {}
+        for _, cel in ipairs(layer.cels) do
+          local frame = cel.frame.frameNumber - 1
+          if all_frames or selected_frames[frame] then
+            local cells, image = {}, cel.image
+            for y = 0, image.height - 1 do for x = 0, image.width - 1 do
+              local value = image:getPixel(x, y)
+              local tile_index = app.pixelColor.tileI(value)
+              if tile_index ~= 0 then
+                local flags = app.pixelColor.tileF(value)
+                cell_count = cell_count + 1
+                if cell_count > input.max_cells then fail("LIMIT_EXCEEDED", "tilemap export exceeds cell limit") end
+                table.insert(cells, {x=x, y=y, tile_index=tile_index,
+                  flip_x=tile_flag_set(flags, 0x80000000),
+                  flip_y=tile_flag_set(flags, 0x40000000),
+                  flip_diagonal=tile_flag_set(flags, 0x20000000)})
+              end
+            end end
+            table.insert(frames, {frame=frame, x=cel.position.x, y=cel.position.y,
+              width_cells=image.width, height_cells=image.height, cells=cells})
+            frame_count = frame_count + 1
+          end
+        end
+        if #frames > 0 then table.insert(layers, {layer=path, tileset=layer.tileset.name, frames=frames}) end
+      end
+      if layer.isGroup then walk(layer.layers, path) end
+    end
+  end
+  walk(sprite.layers, "")
+  if #layers == 0 then sprite:close(); fail("INVALID_SELECTOR", "no matching tilemap cels were found") end
+  local document = {schema_version=1, canvas_width=sprite.width,
+    canvas_height=sprite.height, layers=layers}
+  write_all(input.data_output_path, json.encode(document))
+  sprite:close()
+  return {layer_count=#layers, frame_count=frame_count, cell_count=cell_count}
+end
+
+local function optional_tilemap_layer(sprite, path)
+  local current, found = sprite.layers, nil
+  for part in string.gmatch(path, "[^/]+") do
+    found = nil
+    for _, candidate in ipairs(current) do
+      if candidate.name == part then
+        if found ~= nil then fail("INVALID_SELECTOR", "layer path is ambiguous: " .. path) end
+        found = candidate
+      end
+    end
+    if found == nil then return nil end
+    current = found.layers or {}
+  end
+  return found
+end
+
+operations.import_tilemap_data = function(input)
+  local sprite = open_sprite(input.source_path)
+  local document = input.document
+  if document.schema_version ~= 1 then sprite:close(); fail("INVALID_INPUT", "unsupported tilemap schema version") end
+  if document.canvas_width ~= sprite.width or document.canvas_height ~= sprite.height then
+    sprite:close(); fail("INVALID_INPUT", "tilemap JSON canvas does not match source sprite")
+  end
+  local visits = 0
+  app.transaction("MCP import tilemap data", function()
+    for _, layer_data in ipairs(document.layers) do
+      local tileset = find_tileset(sprite, layer_data.tileset)
+      local layer = optional_tilemap_layer(sprite, layer_data.layer)
+      if layer == nil then
+        if not input.create_missing_layers or string.find(layer_data.layer, "/", 1, true) then
+          fail("INVALID_SELECTOR", "tilemap layer was not found: " .. layer_data.layer)
+        end
+        app.command.NewLayer{name=layer_data.layer, tilemap=true}
+        layer = app.layer
+        layer.tileset = tileset
+      end
+      if not layer.isTilemap then fail("INVALID_SELECTOR", "target layer is not a tilemap") end
+      if layer.tileset.name ~= tileset.name then fail("INVALID_INPUT", "tilemap layer uses a different tileset") end
+      for _, frame_data in ipairs(layer_data.frames) do
+        while #sprite.frames <= frame_data.frame do sprite:newEmptyFrame() end
+        local frame = frame_data.frame + 1
+        local cel = layer:cel(frame)
+        if cel == nil then cel = sprite:newCel(layer, frame) end
+        local image = Image(cel.image)
+        if image.width ~= frame_data.width_cells or image.height ~= frame_data.height_cells then
+          fail("INVALID_INPUT", "tilemap frame dimensions do not match target layer")
+        end
+        if input.clear_existing then image:clear() end
+        for _, cell in ipairs(frame_data.cells) do
+          visits = visits + 1
+          if visits > input.max_cells then fail("LIMIT_EXCEEDED", "tilemap import exceeds cell limit") end
+          if cell.x >= image.width or cell.y >= image.height or cell.tile_index >= #tileset then
+            fail("INVALID_SELECTOR", "tilemap cell or tile index is outside target")
+          end
+          local flags = 0
+          if cell.flip_x then flags = flags + 0x80000000 end
+          if cell.flip_y then flags = flags + 0x40000000 end
+          if cell.flip_diagonal then flags = flags + 0x20000000 end
+          image:drawPixel(cell.x, cell.y, app.pixelColor.tile(cell.tile_index, flags))
+        end
+        cel.image = image
+        cel.position = Point(frame_data.x, frame_data.y)
+      end
     end
   end)
   save_copy(sprite, input.output_path)
