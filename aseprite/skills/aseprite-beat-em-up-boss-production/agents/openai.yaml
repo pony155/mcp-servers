@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Boss"
+  short_description: "Produce readable multi-phase beat-'em-up bosses"
+  default_prompt: "Use $aseprite-beat-em-up-boss-production to build and validate this boss sprite set."

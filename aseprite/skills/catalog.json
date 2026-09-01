@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "skill_count": 42,
+  "skill_count": 52,
   "skills": [
     {
       "name": "aseprite-accessibility-review",
@@ -50,6 +50,76 @@
       "recommended_tool_profile": "export",
       "description": "Apply a consistent inspection, validation, naming, and export contract across multiple Aseprite assets. Use for bounded asset batches with an explicit output convention, not for unrelated bulk filesystem changes.",
       "path": "aseprite-batch-asset-pipeline/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-boss-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Produce and validate large multi-phase boss sprite sets for pixel-art beat-'em-ups in Aseprite. Use for boss tells, phase transitions, armor, grabs, arena attacks, reactions, combat metadata, and engine handoff rather than ordinary enemy-roster work.",
+      "path": "aseprite-beat-em-up-boss-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-character-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Produce and validate player-character sprite sets for lane-based pixel-art beat-'em-ups in Aseprite. Use for movement, attacks, grabs, reactions, knockdowns, combat boxes, anchors, timing, and engine-ready manifests.",
+      "path": "aseprite-beat-em-up-character-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-combat-authoring",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Author and review engine-neutral combat timing, boxes, anchors, and events for pixel-art beat-'em-up actions. Use for hitboxes, hurtboxes, pushboxes, grabs, throws, armor, invulnerability, startup, active, recovery, hitstop, hitstun, and knockback.",
+      "path": "aseprite-beat-em-up-combat-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-combat-readability-review",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Review completed beat-'em-up animations for gameplay readability in Aseprite. Use to diagnose attack tells, active timing, reach, hurt reactions, overlapping boxes, anchors, crowd legibility, and recovery clarity without redesigning unrelated game logic.",
+      "path": "aseprite-beat-em-up-combat-readability-review/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-combat-vfx-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Produce synchronized pixel-art combat effects for beat-'em-ups in Aseprite. Use for hit sparks, trails, dust, shockwaves, projectiles, impact flashes, charge effects, and anchor/event timing tied to combat actions.",
+      "path": "aseprite-beat-em-up-combat-vfx-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-enemy-roster-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Design, produce, and audit coherent pixel-art enemy rosters for lane-based beat-'em-ups in Aseprite. Use for shared action contracts, silhouettes, rank variants, bosses, combat reach, anchors, palettes, and roster consistency.",
+      "path": "aseprite-beat-em-up-enemy-roster-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-engine-export",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Validate and package Aseprite character, combat, VFX, prop, or stage assets for a beat-'em-up game engine. Use for reproducible sprite-sheet, frame-data, gameplay-manifest, and ZIP bundle handoff after authoring is complete.",
+      "path": "aseprite-beat-em-up-engine-export/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-stage-gameplay-authoring",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Author gameplay zones and encounter metadata for lane-based pixel-art beat-'em-up stages in Aseprite. Use for walkable lanes, camera bounds, spawns, encounters, exits, hazards, pits, and foreground occlusion after stage art exists.",
+      "path": "aseprite-beat-em-up-stage-gameplay-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-stage-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Produce pixel-art stages and gameplay-ready environment assets for lane-based beat-'em-ups in Aseprite. Use for scrolling backgrounds, walkable lanes, encounter spaces, props, breakables, hazards, depth layers, tilemaps, transitions, and stage export.",
+      "path": "aseprite-beat-em-up-stage-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-weapon-and-pickup-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat",
+      "description": "Produce pixel-art weapons, pickups, carried props, and their character interactions for beat-'em-ups in Aseprite. Use for ground, held, attack, thrown, impact, broken, collected, and attachment states rather than general environment props.",
+      "path": "aseprite-beat-em-up-weapon-and-pickup-production/SKILL.md"
     },
     {
       "name": "aseprite-bitmap-font-production",

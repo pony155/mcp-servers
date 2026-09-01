@@ -20,8 +20,9 @@ PROFILE_CATEGORIES = {
     ),
     "export": frozenset({"core", "export"}),
     "qa": frozenset({"core", "validation"}),
+    "combat": frozenset({"core", "combat"}),
     "full": frozenset(
-        {"core", "documents", "pixels", "palettes", "animation", "tiles", "export", "validation"}
+        {"core", "documents", "pixels", "palettes", "animation", "tiles", "export", "validation", "combat"}
     ),
 }
 TOOL_PROFILES = tuple(PROFILE_CATEGORIES)
@@ -53,6 +54,12 @@ READ_TOOL_NAMES = frozenset(
         "aseprite_validate_loop_transition",
         "aseprite_validate_pixel_art",
         "aseprite_validate_tileset",
+        "aseprite_preview_combat_overlay",
+        "aseprite_validate_combat_action",
+        "aseprite_validate_character_roster",
+        "aseprite_preview_combat_animation",
+        "aseprite_validate_combat_set",
+        "aseprite_validate_stage_gameplay",
     }
 )
 
@@ -118,6 +125,14 @@ WRITE_TOOL_NAMES = frozenset(
         "aseprite_transform_cel",
         "aseprite_transform_selection",
         "aseprite_trim_cels",
+        "aseprite_edit_combat_boxes",
+        "aseprite_edit_frame_anchors",
+        "aseprite_export_combat_manifest",
+        "aseprite_edit_action_metadata",
+        "aseprite_edit_cancel_windows",
+        "aseprite_edit_root_motion",
+        "aseprite_edit_stage_gameplay_zones",
+        "aseprite_export_beat_em_up_bundle",
     }
 )
 
@@ -128,6 +143,8 @@ INLINE_IMAGE_TOOL_NAMES = frozenset(
         "aseprite_preview_nine_slice",
         "aseprite_preview_onion_skin",
         "aseprite_render_tilemap_preview",
+        "aseprite_preview_combat_overlay",
+        "aseprite_preview_combat_animation",
     }
 )
 

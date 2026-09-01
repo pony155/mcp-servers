@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "tool_count": 85,
+  "tool_count": 99,
   "profiles": [
     {
       "name": "core",
@@ -63,9 +63,18 @@
       "tool_count": 14
     },
     {
+      "name": "combat",
+      "categories": [
+        "combat",
+        "core"
+      ],
+      "tool_count": 17
+    },
+    {
       "name": "full",
       "categories": [
         "animation",
+        "combat",
         "core",
         "documents",
         "export",
@@ -74,7 +83,7 @@
         "tiles",
         "validation"
       ],
-      "tool_count": 85
+      "tool_count": 99
     }
   ],
   "tools": [
@@ -296,6 +305,18 @@
       "description": "Draw bounded pencil strokes with explicit points, brush size, and opacity."
     },
     {
+      "name": "aseprite_edit_action_metadata",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove tagged action type, facing, movement, transition, and speed metadata."
+    },
+    {
       "name": "aseprite_edit_animation_events",
       "category": "animation",
       "profiles": [
@@ -320,6 +341,18 @@
       "output": "file",
       "requires_aseprite": true,
       "description": "Apply validated blend modes to exact non-group layer paths."
+    },
+    {
+      "name": "aseprite_edit_cancel_windows",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove conditional frame ranges and their permitted action transitions."
     },
     {
       "name": "aseprite_edit_cels",
@@ -348,6 +381,30 @@
       "output": "file",
       "requires_aseprite": true,
       "description": "Assign or convert a document color space using sRGB or an authorized ICC profile."
+    },
+    {
+      "name": "aseprite_edit_combat_boxes",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove frame-specific offensive, defensive, and occupancy boxes."
+    },
+    {
+      "name": "aseprite_edit_frame_anchors",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove named per-frame gameplay and attachment anchors."
     },
     {
       "name": "aseprite_edit_frames",
@@ -418,6 +475,18 @@
       "description": "Set or remove scalar user properties on sprite production objects."
     },
     {
+      "name": "aseprite_edit_root_motion",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove explicit per-frame screen, vertical, and lane displacement."
+    },
+    {
       "name": "aseprite_edit_selection",
       "category": "pixels",
       "profiles": [
@@ -444,6 +513,18 @@
       "output": "file",
       "requires_aseprite": true,
       "description": "Create/update frame-specific slices or remove named slices."
+    },
+    {
+      "name": "aseprite_edit_stage_gameplay_zones",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove stage lanes, camera bounds, encounters, exits, and hazards."
     },
     {
       "name": "aseprite_edit_tags",
@@ -494,6 +575,18 @@
       "description": "Create or rename tilesets and add, remove, or repaint their tiles."
     },
     {
+      "name": "aseprite_export_beat_em_up_bundle",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export one ZIP containing sheet.png, frames.json, and the versioned gameplay manifest."
+    },
+    {
       "name": "aseprite_export_bitmap_font",
       "category": "export",
       "profiles": [
@@ -507,6 +600,18 @@
       "output": "file",
       "requires_aseprite": true,
       "description": "Export explicit glyph rectangles as a PNG atlas and deterministic JSON metrics."
+    },
+    {
+      "name": "aseprite_export_combat_manifest",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export versioned action timing, events, combat boxes, and anchors as JSON."
     },
     {
       "name": "aseprite_export_frames",
@@ -669,6 +774,7 @@
         "tiles",
         "export",
         "qa",
+        "combat",
         "full"
       ],
       "mutability": "read",
@@ -768,6 +874,7 @@
         "tiles",
         "export",
         "qa",
+        "combat",
         "full"
       ],
       "mutability": "read",
@@ -809,6 +916,7 @@
         "tiles",
         "export",
         "qa",
+        "combat",
         "full"
       ],
       "mutability": "read",
@@ -897,6 +1005,30 @@
       "output": "inline-image",
       "requires_aseprite": true,
       "description": "Return an inline animated GIF for all frames or one tag."
+    },
+    {
+      "name": "aseprite_preview_combat_animation",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "inline-image",
+      "requires_aseprite": true,
+      "description": "Return an inline animated GIF with combat boxes and anchors over an entire action tag."
+    },
+    {
+      "name": "aseprite_preview_combat_overlay",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "inline-image",
+      "requires_aseprite": true,
+      "description": "Return an inline PNG of one action frame with color-coded combat boxes and anchors."
     },
     {
       "name": "aseprite_preview_nine_slice",
@@ -1191,6 +1323,42 @@
       "description": "Validate multiple assets against one profile and cross-asset consistency rules."
     },
     {
+      "name": "aseprite_validate_character_roster",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Check roster action tags, anchors, canvas sizes, and color modes."
+    },
+    {
+      "name": "aseprite_validate_combat_action",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Validate one action's phases, combat boxes, and required frame anchors."
+    },
+    {
+      "name": "aseprite_validate_combat_set",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Validate selected or authored actions together, including metadata and cancel targets."
+    },
+    {
       "name": "aseprite_validate_export_profile",
       "category": "validation",
       "profiles": [
@@ -1231,6 +1399,18 @@
       "output": "structured",
       "requires_aseprite": true,
       "description": "Check color count, alpha, palette compliance, and isolated opaque pixels."
+    },
+    {
+      "name": "aseprite_validate_stage_gameplay",
+      "category": "combat",
+      "profiles": [
+        "combat",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Validate stage zones, required markers, encounter order, and walkable containment."
     },
     {
       "name": "aseprite_validate_tileset",

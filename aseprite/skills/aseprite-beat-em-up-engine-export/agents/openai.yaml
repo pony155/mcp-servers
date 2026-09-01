@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Engine Export"
+  short_description: "Validate and package engine-ready beat-'em-up assets"
+  default_prompt: "Use $aseprite-beat-em-up-engine-export to validate and package this approved asset for the game engine."

@@ -407,6 +407,13 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
 - Layer-variant rendering batches named visibility combinations, exact duplicate images can be
   linked without removing frames, and compatible transparent layer trees can be copied between
   documents without granting arbitrary script access.
+- Beat-'em-up combat tools edit versioned frame boxes and named anchors, render diagnostic
+  overlays, validate startup/active/recovery contracts, export engine-neutral manifests, and
+  audit required actions and shared invariants across character rosters. The focused `combat`
+  profile exposes these tools with core inspection only.
+- Schema version 2 adds action metadata, conditional cancel windows, explicit root motion, animated
+  combat overlays, whole-set validation, and stage gameplay zones. Beat-'em-up bundle export
+  publishes one ZIP containing the sheet, Aseprite frame data, and gameplay manifest.
 
 All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
 normalized mutation results, and optimistic source-hash guards where a source document is edited.
@@ -420,6 +427,10 @@ skills cover the new focused production workflows while retaining the same file-
 Tile-metadata, tilemap-level, color-managed export, modular-character, modular-variant,
 shared-library, document-optimization, collision-shape, cutscene, and retro-hardware
 skills add engine-specialized workflows without expanding the MCP server's authority.
+Beat-'em-up character, combat-authoring, enemy-roster, and stage skills connect animation,
+metadata, validation, tilemap, and export workflows around a single manifest contract.
+Boss, weapon-and-pickup, combat-VFX, stage-gameplay, engine-export, and combat-readability skills
+cover specialized production and review without changing filesystem authority.
 
 ## 9. Resources
 

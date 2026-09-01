@@ -61,6 +61,18 @@ FAMILIES = {
         "aseprite-release-asset-audit",
         "aseprite-shared-asset-library-production",
     },
+    "beat-em-up": {
+        "aseprite-beat-em-up-character-production",
+        "aseprite-beat-em-up-combat-authoring",
+        "aseprite-beat-em-up-boss-production",
+        "aseprite-beat-em-up-combat-readability-review",
+        "aseprite-beat-em-up-combat-vfx-production",
+        "aseprite-beat-em-up-engine-export",
+        "aseprite-beat-em-up-enemy-roster-production",
+        "aseprite-beat-em-up-stage-production",
+        "aseprite-beat-em-up-stage-gameplay-authoring",
+        "aseprite-beat-em-up-weapon-and-pickup-production",
+    },
 }
 
 PROFILE_BY_FAMILY = {
@@ -70,6 +82,7 @@ PROFILE_BY_FAMILY = {
     "tiles-and-world": "tiles",
     "ui-and-fonts": "sprite",
     "export-and-pipeline": "export",
+    "beat-em-up": "combat",
 }
 
 PROFILE_BY_SKILL = {

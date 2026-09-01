@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Weapons"
+  short_description: "Produce weapons, pickups, and carried combat props"
+  default_prompt: "Use $aseprite-beat-em-up-weapon-and-pickup-production to build this weapon or pickup asset set."

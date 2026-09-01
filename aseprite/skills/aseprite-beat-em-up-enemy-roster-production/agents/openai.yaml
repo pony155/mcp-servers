@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Enemy Roster"
+  short_description: "Produce and audit a coherent beat-'em-up enemy roster"
+  default_prompt: "Use $aseprite-beat-em-up-enemy-roster-production to build and validate this enemy roster."

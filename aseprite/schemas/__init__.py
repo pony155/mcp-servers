@@ -8,6 +8,7 @@ from .animation import *
 from .tiles import *
 from .export import *
 from .validation import *
+from .combat import *
 
 __all__ = [
     "StrictModel",
@@ -115,4 +116,24 @@ __all__ = [
     "AnimationTagDefinition",
     "LayerDefinition",
     "FrameDefinition",
+    "CombatActionValidationResult",
+    "CombatBoxEditOperation",
+    "CombatBoxInfo",
+    "CombatManifestResult",
+    "CombatValidationIssue",
+    "CharacterRosterItem",
+    "CharacterRosterValidationResult",
+    "FrameAnchorEditOperation",
+    "FrameAnchorInfo",
+    "ActionMetadataEditOperation",
+    "ActionMetadataInfo",
+    "BeatEmUpBundleResult",
+    "CancelWindowEditOperation",
+    "CancelWindowInfo",
+    "CombatSetValidationResult",
+    "RootMotionEditOperation",
+    "RootMotionInfo",
+    "StageGameplayValidationResult",
+    "StageGameplayZoneEditOperation",
+    "StageGameplayZoneInfo",
 ]

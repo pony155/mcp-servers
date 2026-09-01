@@ -134,6 +134,7 @@ profiles reduce the schemas placed in an MCP client's context:
 | `tiles` | Sprite tools plus tilesets, tilemaps, metadata, and validation. |
 | `export` | Inspection plus render and export tools. |
 | `qa` | Inspection plus read-only comparison and validation tools. |
+| `combat` | Core inspection plus beat-'em-up combat metadata, preview, validation, and manifest tools. |
 | `full` | Every registered tool. |
 
 Repeat `--tool-profile` to combine profiles. Core tools are always available:
@@ -255,6 +256,20 @@ bridge request payloads are not logged.
 | `aseprite_generate_motion_report` | Measure bounds, centroid, velocity, and acceleration. | No |
 | `aseprite_generate_collision_polygons` | Trace simplified outer contours from sprite alpha. | No |
 | `aseprite_export_bitmap_font` | Export explicit glyphs as a PNG atlas and JSON metrics. | Yes |
+| `aseprite_edit_combat_boxes` | Set or remove frame-specific gameplay boxes for tagged actions. | Yes |
+| `aseprite_edit_frame_anchors` | Set or remove named per-frame gameplay origins. | Yes |
+| `aseprite_preview_combat_overlay` | Preview color-coded boxes and anchors over one action frame. | No |
+| `aseprite_validate_combat_action` | Check action phases, hurtboxes, active frames, and required anchors. | No |
+| `aseprite_export_combat_manifest` | Export versioned engine-neutral combat JSON. | Yes |
+| `aseprite_validate_character_roster` | Check cross-character action, anchor, canvas, and color-mode contracts. | No |
+| `aseprite_edit_action_metadata` | Define action type, facing, movement, transitions, and speed. | Yes |
+| `aseprite_edit_cancel_windows` | Define conditional frame ranges and allowed action transitions. | Yes |
+| `aseprite_edit_root_motion` | Author explicit per-frame screen, vertical, and lane displacement. | Yes |
+| `aseprite_preview_combat_animation` | Preview an action as an animated combat-overlay GIF. | No |
+| `aseprite_validate_combat_set` | Validate authored actions and cross-action cancel references together. | No |
+| `aseprite_edit_stage_gameplay_zones` | Author lane, camera, encounter, spawn, exit, and hazard regions. | Yes |
+| `aseprite_validate_stage_gameplay` | Validate required stage zones and walkable containment. | No |
+| `aseprite_export_beat_em_up_bundle` | Publish a ZIP with sheet, frame data, and gameplay manifest. | Yes |
 
 Frame indices are zero-based. Layer selectors are exact hierarchy paths such as `Character/Outline`.
 
@@ -372,10 +387,17 @@ the existing safe export boundary. Exact duplicate cel images can be linked with
 frames, and compatible transparent image-layer trees can be copied between documents; background
 and tilemap layer copying is intentionally rejected.
 
+Beat-'em-up metadata is stored as schema-versioned JSON in the `mcp.combat_data` sprite property.
+Version 2 adds action contracts, cancel windows, root motion, and stage gameplay zones while
+migrating version-1 box/anchor metadata on the next edit. Action names and ranges come from
+Aseprite tags; frame events continue to use `mcp.animation_events`. Combat tools use zero-based
+document frame indexes and stable identifiers. The engine-neutral bundle is a single ZIP containing
+`sheet.png`, `frames.json`, and `manifest.json`.
+
 ### Sprite-production skill
 
 Distributable Codex skills are under [`skills`](skills). Use the generated
-[`skills/CATALOG.md`](skills/CATALOG.md) to choose among the six workflow families and resolve
+[`skills/CATALOG.md`](skills/CATALOG.md) to choose among the seven workflow families and resolve
 overlap between related skills. Its machine-readable companion, [`skills/catalog.json`](skills/catalog.json),
 records every skill's recommended MCP tool profile.
 

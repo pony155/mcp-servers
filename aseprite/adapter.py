@@ -9,6 +9,7 @@ from .services import (
     TilesService,
     ExportService,
     ValidationService,
+    CombatService,
 )
 
 
@@ -20,7 +21,8 @@ class AsepriteAdapter(
     PalettesService,
     TilesService,
     ExportService,
-    ValidationService
+    ValidationService,
+    CombatService,
 ):
     """Expose the stable adapter API while implementations live by domain."""
 

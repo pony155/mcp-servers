@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Character"
+  short_description: "Produce engine-ready beat-'em-up character sets"
+  default_prompt: "Use $aseprite-beat-em-up-character-production to build and validate this character sprite set."

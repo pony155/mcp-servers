@@ -127,6 +127,7 @@ BRIDGE_FRAGMENT_NAMES = (
     "tiles.lua",
     "export.lua",
     "validation.lua",
+    "combat.lua",
     "dispatch.lua",
 )
 

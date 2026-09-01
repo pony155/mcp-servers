@@ -23,6 +23,13 @@ runtime instructions.
 - Use `aseprite-character-animation-set` for a complete state family and
   `aseprite-modular-character-production` when independently composited parts are the central
   constraint.
+- Use `aseprite-beat-em-up-character-production` for one playable character,
+  `aseprite-beat-em-up-combat-authoring` for frame-level gameplay metadata,
+  `aseprite-beat-em-up-enemy-roster-production` for set-wide enemy consistency, and
+  `aseprite-beat-em-up-stage-production` for lane-based environment assets.
+- Within that pipeline, use the boss, weapon-and-pickup, or combat-VFX skill for the named asset
+  family; use stage-gameplay authoring after stage art exists, combat-readability review for
+  diagnosis, and engine export only after validation is complete.
 
 Run `python aseprite/skills/generate_catalog.py` after adding, removing, or renaming a skill, then
 review the resulting family and recommended tool profile.

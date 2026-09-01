@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Combat VFX"
+  short_description: "Produce synchronized combat effects and impact cues"
+  default_prompt: "Use $aseprite-beat-em-up-combat-vfx-production to author and synchronize these combat effects."
