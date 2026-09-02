@@ -10,6 +10,7 @@ from .services import (
     ExportService,
     ValidationService,
     CombatService,
+    ModularService,
 )
 
 
@@ -23,6 +24,7 @@ class AsepriteAdapter(
     ExportService,
     ValidationService,
     CombatService,
+    ModularService,
 ):
     """Expose the stable adapter API while implementations live by domain."""
 

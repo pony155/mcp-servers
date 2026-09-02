@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "tool_count": 99,
+  "tool_count": 103,
   "profiles": [
     {
       "name": "core",
@@ -68,6 +68,19 @@
       "tool_count": 25
     },
     {
+      "name": "modular-character-authoring",
+      "categories": [
+        "core",
+        "documents",
+        "export",
+        "modular",
+        "palettes",
+        "pixels",
+        "validation"
+      ],
+      "tool_count": 25
+    },
+    {
       "name": "full",
       "categories": [
         "animation",
@@ -75,12 +88,13 @@
         "core",
         "documents",
         "export",
+        "modular",
         "palettes",
         "pixels",
         "tiles",
         "validation"
       ],
-      "tool_count": 99
+      "tool_count": 103
     }
   ],
   "profile_aliases": {
@@ -89,7 +103,8 @@
     "tiles": "stage-authoring",
     "export": "export-qa",
     "qa": "export-qa",
-    "combat": "combat-authoring"
+    "combat": "combat-authoring",
+    "modular": "modular-character-authoring"
   },
   "tools": [
     {
@@ -98,6 +113,7 @@
       "profiles": [
         "sprite-authoring",
         "animation-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "read",
@@ -123,6 +139,7 @@
       "profiles": [
         "sprite-authoring",
         "animation-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -206,6 +223,7 @@
       "name": "aseprite_copy_layer_tree",
       "category": "documents",
       "profiles": [
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -232,6 +250,7 @@
       "profiles": [
         "sprite-authoring",
         "stage-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -344,6 +363,7 @@
         "sprite-authoring",
         "animation-authoring",
         "combat-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -419,12 +439,25 @@
         "animation-authoring",
         "combat-authoring",
         "stage-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
       "output": "file",
       "requires_aseprite": true,
       "description": "Add, remove, rename, show, hide, reorder, or regroup layers sequentially."
+    },
+    {
+      "name": "aseprite_edit_modular_part_metadata",
+      "category": "modular",
+      "profiles": [
+        "modular-character-authoring",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Set or remove structured slot, compatibility, draw-order, and anchor metadata."
     },
     {
       "name": "aseprite_edit_palette_entries",
@@ -443,6 +476,7 @@
       "profiles": [
         "sprite-authoring",
         "stage-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -479,6 +513,7 @@
       "category": "documents",
       "profiles": [
         "sprite-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -597,6 +632,18 @@
       "description": "Export explicit zero-based frames to explicit PNG output paths."
     },
     {
+      "name": "aseprite_export_modular_manifest",
+      "category": "modular",
+      "profiles": [
+        "modular-character-authoring",
+        "full"
+      ],
+      "mutability": "write",
+      "output": "file",
+      "requires_aseprite": true,
+      "description": "Export deterministic modular parts, slots, anchors, and compatibility metadata as JSON."
+    },
+    {
       "name": "aseprite_export_palette",
       "category": "palettes",
       "profiles": [
@@ -615,6 +662,7 @@
         "animation-authoring",
         "stage-authoring",
         "export-qa",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -731,6 +779,7 @@
         "combat-authoring",
         "stage-authoring",
         "export-qa",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "read",
@@ -767,6 +816,7 @@
         "sprite-authoring",
         "animation-authoring",
         "combat-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -805,6 +855,7 @@
       "category": "documents",
       "profiles": [
         "sprite-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "read",
@@ -822,6 +873,7 @@
         "combat-authoring",
         "stage-authoring",
         "export-qa",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "read",
@@ -863,6 +915,7 @@
         "combat-authoring",
         "stage-authoring",
         "export-qa",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "read",
@@ -897,6 +950,7 @@
       "category": "export",
       "profiles": [
         "export-qa",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -967,6 +1021,18 @@
       "description": "Return an inline PNG of one action frame with color-coded combat boxes and anchors."
     },
     {
+      "name": "aseprite_preview_modular_variant",
+      "category": "modular",
+      "profiles": [
+        "modular-character-authoring",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "inline-image",
+      "requires_aseprite": true,
+      "description": "Return an inline preview of a metadata-selected modular part combination."
+    },
+    {
       "name": "aseprite_preview_nine_slice",
       "category": "export",
       "profiles": [
@@ -1020,6 +1086,7 @@
         "animation-authoring",
         "combat-authoring",
         "stage-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "read",
@@ -1058,6 +1125,7 @@
       "profiles": [
         "stage-authoring",
         "export-qa",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1082,6 +1150,7 @@
       "category": "palettes",
       "profiles": [
         "sprite-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1145,6 +1214,7 @@
         "sprite-authoring",
         "animation-authoring",
         "combat-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1171,6 +1241,7 @@
         "sprite-authoring",
         "animation-authoring",
         "combat-authoring",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "write",
@@ -1290,10 +1361,23 @@
       "description": "Validate visual and optional timing continuity between loop endpoints."
     },
     {
+      "name": "aseprite_validate_modular_character",
+      "category": "modular",
+      "profiles": [
+        "modular-character-authoring",
+        "full"
+      ],
+      "mutability": "read",
+      "output": "structured",
+      "requires_aseprite": true,
+      "description": "Validate modular slots, identifiers, references, anchors, tags, and frame coverage."
+    },
+    {
       "name": "aseprite_validate_pixel_art",
       "category": "validation",
       "profiles": [
         "export-qa",
+        "modular-character-authoring",
         "full"
       ],
       "mutability": "read",

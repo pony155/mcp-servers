@@ -3,3 +3,6 @@ powershell -ExecutionPolicy Bypass -File .\run_mcp.ps1
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 . .\enable_codex.ps1
 codex mcp list
+
+
+Call aseprite_health and aseprite_list_capabilities

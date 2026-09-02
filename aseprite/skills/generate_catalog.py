@@ -89,6 +89,7 @@ PROFILE_BY_FAMILY = {
 }
 
 PROFILE_BY_SKILL = {
+    "aseprite-modular-character-production": "modular-character-authoring",
     "aseprite-palette-design": "sprite-authoring",
     "aseprite-shared-asset-library-production": "sprite-authoring",
     "aseprite-beat-em-up-stage-production": "stage-authoring",

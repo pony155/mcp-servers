@@ -414,6 +414,10 @@ Every edit should be performed in an Aseprite transaction when supported, saved 
 - Schema version 2 adds action metadata, conditional cancel windows, explicit root motion, animated
   combat overlays, whole-set validation, and stage gameplay zones. Beat-'em-up bundle export
   publishes one ZIP containing the sheet, Aseprite frame data, and gameplay manifest.
+- Modular-character tools store bounded structured part metadata on exact layer paths, preview
+  selected part combinations inline, validate slots/references/anchors/frame coverage, and export
+  a deterministic engine-facing JSON manifest. The focused `modular-character-authoring` profile
+  combines these tools with the existing layer-library, palette, variant-rendering, and QA tools.
 
 All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
 normalized mutation results, and optimistic source-hash guards where a source document is edited.

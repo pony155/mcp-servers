@@ -97,7 +97,7 @@
     {
       "name": "aseprite-modular-character-production",
       "family": "animation",
-      "recommended_tool_profile": "animation-authoring",
+      "recommended_tool_profile": "modular-character-authoring",
       "description": "Produce layer-compatible modular characters in Aseprite. Use for paper dolls, equipment swaps, armor sets, hair variants, or independently composited body parts.",
       "path": "aseprite-modular-character-production/SKILL.md"
     },

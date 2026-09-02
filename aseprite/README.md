@@ -123,7 +123,7 @@ Repeat `--allow-root` to authorize more than one directory. The equivalent envir
 
 ## Tool profiles
 
-The default `sprite-authoring` profile exposes a curated 30-tool surface. All 99 atomic tools stay
+The default `sprite-authoring` profile exposes a curated 30-tool surface. All 103 atomic tools stay
 available internally; choose `full` only for development, auditing, or unusual workflows. Focused
 profiles reduce the schemas placed in an MCP client's context:
 
@@ -133,11 +133,12 @@ profiles reduce the schemas placed in an MCP client's context:
 | `sprite-authoring` | Focused document, pixel, palette, preview, and sheet-export work. |
 | `animation-authoring` | Focused frame, tag, timing, motion-review, and animation-export work. |
 | `combat-authoring` | Character animation plus beat-'em-up metadata, overlays, validation, and bundles. |
+| `modular-character-authoring` | Paper-doll part metadata, previews, validation, libraries, and export. |
 | `stage-authoring` | Tilesets, tilemaps, stage zones, previews, and stage validation. |
 | `export-qa` | Rendering, packing, comparisons, collision generation, validation, and release checks. |
 | `full` | Every registered tool. |
 
-The legacy names `sprite`, `animation`, `tiles`, `export`, `qa`, and `combat` remain accepted as
+The legacy names `sprite`, `animation`, `tiles`, `export`, `qa`, `combat`, and `modular` remain accepted as
 aliases for the corresponding focused profiles.
 
 Repeat `--tool-profile` to combine profiles. Core tools are always available:

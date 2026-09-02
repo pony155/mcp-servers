@@ -10,6 +10,7 @@ from .tiles import TilesService
 from .export import ExportService
 from .validation import ValidationService
 from .combat import CombatService
+from .modular import ModularService
 
 __all__ = [
     "AsepriteRuntime",
@@ -22,4 +23,5 @@ __all__ = [
     "ExportService",
     "ValidationService",
     "CombatService",
+    "ModularService",
 ]

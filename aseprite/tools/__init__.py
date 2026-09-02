@@ -9,6 +9,7 @@ from .tiles import register_tiles_tools
 from .export import register_export_tools
 from .validation import register_validation_tools
 from .combat import register_combat_tools
+from .modular import register_modular_tools
 
 REGISTRARS = {
     "core": register_core_tools,
@@ -20,6 +21,7 @@ REGISTRARS = {
     "export": register_export_tools,
     "validation": register_validation_tools,
     "combat": register_combat_tools,
+    "modular": register_modular_tools,
 }
 
 __all__ = ["REGISTRARS"]

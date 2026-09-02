@@ -9,6 +9,7 @@ from .tiles import *
 from .export import *
 from .validation import *
 from .combat import *
+from .modular import *
 
 __all__ = [
     "StrictModel",
@@ -136,4 +137,10 @@ __all__ = [
     "StageGameplayValidationResult",
     "StageGameplayZoneEditOperation",
     "StageGameplayZoneInfo",
+    "ModularAnchorInput",
+    "ModularCharacterValidationResult",
+    "ModularManifestResult",
+    "ModularPartEditOperation",
+    "ModularPartInfo",
+    "ModularValidationIssue",
 ]

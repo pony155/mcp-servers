@@ -42,6 +42,8 @@ READ_TOOL_NAMES = frozenset(
         "aseprite_preview_combat_animation",
         "aseprite_validate_combat_set",
         "aseprite_validate_stage_gameplay",
+        "aseprite_preview_modular_variant",
+        "aseprite_validate_modular_character",
     }
 )
 
@@ -115,6 +117,8 @@ WRITE_TOOL_NAMES = frozenset(
         "aseprite_edit_root_motion",
         "aseprite_edit_stage_gameplay_zones",
         "aseprite_export_beat_em_up_bundle",
+        "aseprite_edit_modular_part_metadata",
+        "aseprite_export_modular_manifest",
     }
 )
 
@@ -127,6 +131,7 @@ INLINE_IMAGE_TOOL_NAMES = frozenset(
         "aseprite_render_tilemap_preview",
         "aseprite_preview_combat_overlay",
         "aseprite_preview_combat_animation",
+        "aseprite_preview_modular_variant",
     }
 )
 
@@ -199,6 +204,18 @@ PROFILE_TOOL_NAMES = {
         "aseprite_validate_export_profile", "aseprite_validate_loop_transition",
         "aseprite_validate_pixel_art", "aseprite_validate_tileset",
     }),
+    "modular-character-authoring": CORE_TOOL_NAMES | frozenset({
+        "aseprite_analyze_palette", "aseprite_apply_palette", "aseprite_copy_layer_tree",
+        "aseprite_create_sprite", "aseprite_edit_cels", "aseprite_edit_layers",
+        "aseprite_edit_modular_part_metadata", "aseprite_edit_properties",
+        "aseprite_edit_slices", "aseprite_export_modular_manifest",
+        "aseprite_export_sprite_sheet", "aseprite_import_sprite_sheet",
+        "aseprite_inspect_properties", "aseprite_pack_atlas",
+        "aseprite_preview_modular_variant", "aseprite_read_pixels",
+        "aseprite_render_layer_variants", "aseprite_replace_color",
+        "aseprite_set_pixel_runs", "aseprite_transform_cel",
+        "aseprite_validate_modular_character", "aseprite_validate_pixel_art",
+    }),
 }
 PROFILE_TOOL_NAMES["full"] = READ_TOOL_NAMES | WRITE_TOOL_NAMES
 
@@ -209,6 +226,7 @@ PROFILE_ALIASES = {
     "export": "export-qa",
     "qa": "export-qa",
     "combat": "combat-authoring",
+    "modular": "modular-character-authoring",
 }
 TOOL_PROFILES = tuple(PROFILE_TOOL_NAMES) + tuple(PROFILE_ALIASES)
 
