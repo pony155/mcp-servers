@@ -1,8 +1,8 @@
 # Aseprite MCP Server Implementation Plan
 
-**Status:** v0.1 core implemented; additional structural editing tools remain planned  
-**Last updated:** 2026-08-31  
-**Target location:** `servers/aseprite/`
+**Status:** v0.1 core and sprite-production editing surface implemented
+**Last updated:** 2026-09-01
+**Target location:** `aseprite/`
 
 ## 1. Objective
 
@@ -114,37 +114,46 @@ Python MCP server
 - Returns JSON only through the response file.
 - Never evaluates client-provided Lua source or arbitrary command names.
 
-## 5. Proposed repository layout
+## 5. Repository layout
 
 ```text
-servers/aseprite/
+aseprite/
   README.md
-  pyproject.toml
-  uv.lock
-  src/
-    aseprite_mcp/
-      __init__.py
-      __main__.py
-      adapter.py
-      server.py
-      config.py
-      errors.py
-      models.py
-      paths.py
-      process_runner.py
-      scripts/
-        __init__.py
-        bridge.lua
-  tests/
-    fixtures/
-    test_config.py
-    test_integration.py
-    test_models.py
-    test_paths.py
-    test_server.py
+  __main__.py
+  adapter.py                 # Stable compatibility facade.
+  server.py                  # Server construction and profile selection.
+  config.py
+  models.py                  # Stable aggregate schema export.
+  tools/                     # MCP registration by capability domain.
+    inputs.py                # Shared path, overwrite, and hash annotations.
+    catalog.json             # Generated machine-readable capability catalog.
+    TOOLS.md                 # Generated human-readable capability catalog.
+    generate_catalog.py
+  capabilities.py            # Profiles and explicit per-tool policy metadata.
+  services/                  # Adapter implementation by capability domain.
+  schemas/                   # Pydantic models by data domain.
+  scripts/
+    bridge.lua               # Compatibility marker.
+    bridge/
+      runtime.lua            # Shared Lua helpers and operation registry.
+      core.lua
+      pixels.lua
+      documents.lua
+      palettes.lua
+      animation.lua
+      tiles.lua
+      export.lua
+      validation.lua
+      dispatch.lua
+  skills/
+    CATALOG.md
+    catalog.json
+    generate_catalog.py
 ```
 
-Tool modules may be split further when they become difficult to test in isolation. Keep the package importable without starting the server, and put the blocking `mcp.run()` call behind the `if __name__ == "__main__"` guard in `__main__.py`. Do not introduce `packages/` until code is genuinely shared by another server.
+The facade modules preserve established imports while domain modules contain the implementation.
+Keep the package importable without starting the server, and keep the blocking `mcp.run()` call
+behind the `if __name__ == "__main__"` guard in `__main__.py`.
 
 ## 6. Execution protocol with Aseprite
 
@@ -155,7 +164,8 @@ Each bridge-backed operation should follow this sequence:
 3. Acquire an operation lock for each affected sprite path.
 4. Create a unique temporary directory.
 5. Write a bridge request containing a protocol version, operation name, and validated payload.
-6. Launch Aseprite with `--batch`, `--script-param`, and the checked-in `bridge.lua` script.
+6. Assemble the checked-in Lua fragments into a temporary `bridge.lua` and launch Aseprite with
+   `--batch` and `--script-param`.
 7. Capture the child process output and wait with a configurable timeout.
 8. Read and validate the bridge response schema.
 9. Move a completed output into place only after the operation succeeds.
@@ -201,6 +211,7 @@ Configuration precedence should be command-line argument, environment variable, 
 | Diagnostic capture | `--max-capture-bytes <n>` | `ASEPRITE_MCP_MAX_CAPTURE_BYTES` | Caps captured process and bridge output. |
 | Execution mode | `--execution-mode <mode>` | `ASEPRITE_MCP_EXECUTION_MODE` | `auto`, `native`, or `wsl-windows`. |
 | Bridge temporary root | `--bridge-temp-root <path>` | `ASEPRITE_MCP_BRIDGE_TEMP_ROOT` | Existing local directory for Lua control files. |
+| Tool profile | `--tool-profile <name>` | `ASEPRITE_MCP_TOOL_PROFILES` | Repeatable profiles; defaults to `sprite-authoring`; use `full` only when every schema is required. |
 
 Discovery inspects explicit configuration, `PATH`, and documented installation locations. The health tool reports an actionable error when discovery fails. The Lua bridge requires Aseprite 1.3-rc5 or newer because it uses the built-in JSON API; Aseprite 1.3.18.3 with scripting API version 41 is the initial tested version.
 
@@ -301,13 +312,14 @@ Apply strict limits to canvas dimensions, frame count, layer count, palette size
 
 ### Editing tools
 
-Editing should use narrow tools instead of a generic `execute` operation:
+Editing uses narrow tools instead of a generic `execute` operation:
 
-- `aseprite_set_pixels`: write bounded rectangles, rows, or run-length encoded pixel spans to a specific layer and frame.
-- `aseprite_add_layer`, `aseprite_rename_layer`, and `aseprite_remove_layer`.
-- `aseprite_add_frame`, `aseprite_set_frame_duration`, and `aseprite_remove_frame`.
-- `aseprite_set_tag` and `aseprite_remove_tag`.
-- `aseprite_set_palette`.
+- `aseprite_set_pixels` writes bounded RGBA pixels to a specific layer and frame.
+- `aseprite_edit_frames` adds, duplicates, removes, or retimes frames using ordered operations.
+- `aseprite_edit_layers` adds, removes, renames, shows, hides, reorders, or regroups layers.
+- `aseprite_edit_tags` creates, updates, or removes animation tags.
+- `aseprite_apply_palette` remaps RGB or indexed cel colors to at most 256 supplied colors.
+- `aseprite_transform_cel` translates, flips, or quarter-turns one image cel.
 
 Every edit input should include:
 
@@ -317,6 +329,106 @@ Every edit input should include:
 - Optional `expected_source_hash` for optimistic concurrency.
 
 Every edit should be performed in an Aseprite transaction when supported, saved to a temporary destination, and published only after success. Return the resulting file hash and normalized summary.
+
+### Implemented animation workflow tools
+
+- `aseprite_create_animation` creates a complete bounded animation with per-frame duration,
+  per-layer cel pixels, and optional named playback tags in one atomic operation.
+- `aseprite_import_sprite_sheet` imports a bounded PNG grid into a new editable animation. It
+  supports explicit cell dimensions, optional column and frame counts, margin, spacing, uniform
+  frame duration, layer naming, optional tag creation, and exact color-key transparency.
+- `aseprite_resize_canvas` expands or crops the canvas around one of nine anchors without scaling
+  cel pixels.
+- `aseprite_resize_sprite` scales the canvas and cel artwork. The initial public method is limited
+  to nearest-neighbor scaling so pixel-art behavior remains deterministic.
+- `aseprite_validate_animation` performs a bounded, read-only scan for empty frames, visible bounds,
+  baseline drift, width/height drift, and possible duplicate frames. Tilemaps use a documented
+  bounds approximation.
+- `aseprite_preview` returns a bounded inline PNG for one frame or a sprite-sheet selection without
+  publishing an output file.
+- `aseprite_read_pixels` returns up to 65,536 pixels from one image layer/frame as compact,
+  row-based `#RRGGBBAA` runs.
+- `aseprite_edit_frames`, `aseprite_edit_layers`, and `aseprite_edit_tags` apply ordered structural
+  edits, so selectors in later operations observe earlier changes.
+- `aseprite_apply_palette` performs bounded nearest-color remapping; grayscale documents are not
+  supported by this operation.
+- `aseprite_transform_cel` supports translation, horizontal/vertical flip, and clockwise or
+  counter-clockwise 90-degree rotation.
+- `aseprite_read_composited_pixels` provides exact final-frame RGBA runs for review and comparison.
+- `aseprite_set_pixel_runs` writes bounded horizontal spans without a per-pixel request object.
+- `aseprite_copy_cel` copies or links cel images and requires explicit replacement of an existing
+  target.
+- `aseprite_compare_frames` reports changed pixels, bounds, and baseline movement, with an optional
+  difference PNG.
+- `aseprite_edit_slices` manages frame-specific bounds, nine-slice centers, and pivots.
+- `aseprite_trim_cels` removes transparent image borders while retaining absolute cel placement.
+- `aseprite_edit_properties` manages scalar user metadata on sprites, layers, tags, slices, and cels.
+- `aseprite_convert_color_mode` wraps the documented batch-capable conversion command with explicit
+  color mode and dithering options.
+- `aseprite_edit_tileset` manages bounded tileset and tile-image operations; the separate
+  `aseprite_edit_tilemap` tool applies bounded tile-cell layout edits.
+- `aseprite_render_contact_sheet` writes a bounded, zero-based labelled frame-review grid.
+- Cel inspection and palette analysis expose linked-image identity and exact color usage.
+- Fixed color replacement, filling, shape drawing, selections, and outlining provide bounded
+  higher-level pixel operations without accepting scripts or arbitrary commands.
+- Tileset inspection, tilemap cell editing, validation, and PNG/JSON export complete the first
+  tile-production workflow.
+- `aseprite_preview_animation` returns a bounded inline GIF for direct client review.
+- `aseprite_crop_sprite`, `aseprite_draw_strokes`, and `aseprite_transform_selection` add bounded
+  canvas cleanup, freehand pixel work, and deterministic rectangular transforms.
+- `aseprite_edit_palette_entries` provides index-aware palette maintenance with explicit
+  replacement behavior for removals.
+- `aseprite_compare_sprites` reports structural, metadata, and composited-pixel regressions between
+  two authorized documents.
+- `aseprite_validate_export_profile` checks normalized sprite metadata against an explicit,
+  client-supplied engine handoff contract.
+- Atlas packing, palette import/export and quantization, explicit slice extraction, and collision
+  mask derivation cover common engine-preparation operations without exposing arbitrary CLI flags.
+- Bounded batch export reports per-job outcomes, while asset-set validation applies one profile and
+  optional cross-asset dimension and color-mode invariants.
+- Layer merge/flatten, explicit frame import/export, grid and blend-mode editing, and structured
+  animation events extend editable production without exposing unrestricted commands.
+- Tilemap and nine-slice previews return bounded inline PNG evidence without modifying source
+  documents or publishing intermediate files.
+- Cel metadata editing, bounded inbetween generation, indexed palette cycling, and color-derived
+  selection provide targeted animation cleanup without accepting arbitrary scripts.
+- Onion-skin previews expose neighboring motion as a bounded inline PNG, while pixel-art and loop
+  validators report deterministic QA evidence without modifying the source.
+- Sheet-to-tileset extraction uses explicit grid geometry, bounded tile counts, and optional exact
+  duplicate removal.
+- Tile metadata inspection/editing exposes scalar engine properties without allowing arbitrary
+  property graphs, and color-space editing authorizes ICC files through the normal path policy.
+- Deterministic retiming and direction baking support runtimes with fixed playback requirements;
+  motion reports provide read-only evidence for spacing and cadence review.
+- Collision contour generation emits bounded, simplified outer polygons, while bitmap-font export
+  atomically publishes a PNG atlas and JSON metrics from explicit glyph rectangles.
+- Property inspection completes scalar metadata round trips, and versioned tilemap JSON provides
+  bounded engine-facing layout export and import with explicit tile transforms.
+- Layer-variant rendering batches named visibility combinations, exact duplicate images can be
+  linked without removing frames, and compatible transparent layer trees can be copied between
+  documents without granting arbitrary script access.
+- Beat-'em-up combat tools edit versioned frame boxes and named anchors, render diagnostic
+  overlays, validate startup/active/recovery contracts, export engine-neutral manifests, and
+  audit required actions and shared invariants across character rosters. The focused `combat`
+  profile exposes these tools with core inspection only.
+- Schema version 2 adds action metadata, conditional cancel windows, explicit root motion, animated
+  combat overlays, whole-set validation, and stage gameplay zones. Beat-'em-up bundle export
+  publishes one ZIP containing the sheet, Aseprite frame data, and gameplay manifest.
+- Modular-character tools store bounded structured part metadata on exact layer paths, preview
+  selected part combinations inline, validate slots/references/anchors/frame coverage, and export
+  a deterministic engine-facing JSON manifest. The focused `modular-character-authoring` profile
+  combines these tools with the existing layer-library, palette, variant-rendering, and QA tools.
+
+All mutation tools use authorized paths, temporary sibling output, explicit overwrite permission,
+normalized mutation results, and optimistic source-hash guards where a source document is edited.
+
+Versioned Codex skills live under `aseprite/skills`. The catalog exposes 24 canonical workflows
+grouped into foundation, animation, beat-'em-up, color and QA, export, world-building, and UI
+families. Broader canonical skills accept explicit modes: for example, character-animation-set
+covers directional, platformer, top-down, fighting, and modular variants; game-export covers atlas,
+collision, engine-profile, batch, and release-audit work. Historical narrow skill names remain as
+deprecated aliases, so existing prompts keep working without presenting 52 overlapping choices.
+Skills orchestrate the narrow MCP tools without expanding filesystem or process authority.
 
 ## 9. Resources
 

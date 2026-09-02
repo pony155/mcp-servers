@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Isometric Tile Production"
+  short_description: "Build aligned seamless isometric tile families"
+  default_prompt: "Use $aseprite-isometric-tile-production to build and validate these isometric tiles."

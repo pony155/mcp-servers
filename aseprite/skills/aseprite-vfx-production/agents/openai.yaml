@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite VFX Production"
+  short_description: "Create readable looping and one-shot pixel VFX"
+  default_prompt: "Use $aseprite-vfx-production to build and review this pixel-art effect."

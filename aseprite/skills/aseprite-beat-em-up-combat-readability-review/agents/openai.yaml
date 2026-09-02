@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Readability Review"
+  short_description: "Review tells, timing, reach, boxes, and crowd clarity"
+  default_prompt: "Use $aseprite-beat-em-up-combat-readability-review to review this completed combat animation set."

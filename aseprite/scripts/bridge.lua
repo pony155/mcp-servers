@@ -1,0 +1,1 @@
+-- Compatibility marker: the runtime assembles scripts/bridge/*.lua.

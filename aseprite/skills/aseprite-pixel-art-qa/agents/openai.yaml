@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Pixel Art QA"
+  short_description: "Audit pixel clusters, silhouettes, colors, and motion"
+  default_prompt: "Use $aseprite-pixel-art-qa to audit this sprite and report prioritized, frame-specific corrections."

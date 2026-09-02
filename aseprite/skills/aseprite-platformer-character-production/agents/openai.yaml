@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Platformer Character"
+  short_description: "Produce complete platformer character animation sets"
+  default_prompt: "Use $aseprite-platformer-character-production to build and validate this platformer character set."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Nine-Slice UI Production"
+  short_description: "Create scalable pixel UI with verified borders"
+  default_prompt: "Use $aseprite-nine-slice-ui-production to create and preview this scalable pixel UI."

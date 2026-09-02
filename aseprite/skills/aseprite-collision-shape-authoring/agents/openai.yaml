@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Collision Shapes"
+  short_description: "Author stable rectangle and polygon collisions"
+  default_prompt: "Use $aseprite-collision-shape-authoring to derive and audit these collision shapes."

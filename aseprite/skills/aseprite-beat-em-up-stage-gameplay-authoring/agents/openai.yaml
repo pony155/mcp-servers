@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Stage Gameplay"
+  short_description: "Author lane, encounter, camera, and hazard zones"
+  default_prompt: "Use $aseprite-beat-em-up-stage-gameplay-authoring to author and validate this stage's gameplay zones."

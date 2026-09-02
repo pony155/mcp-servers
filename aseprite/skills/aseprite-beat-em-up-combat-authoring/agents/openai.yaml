@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Combat"
+  short_description: "Author combat boxes, anchors, timing, and manifests"
+  default_prompt: "Use $aseprite-beat-em-up-combat-authoring to author and validate combat data for this action."

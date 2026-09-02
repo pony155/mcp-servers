@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Retro Hardware"
+  short_description: "Produce assets within exact hardware constraints"
+  default_prompt: "Use $aseprite-retro-hardware-constraint-production to build this constrained asset."

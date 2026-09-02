@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Beat-'em-up Stage"
+  short_description: "Produce gameplay-ready lane-based pixel-art stages"
+  default_prompt: "Use $aseprite-beat-em-up-stage-production to build and validate this stage asset set."

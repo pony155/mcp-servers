@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Pixel Art Restoration"
+  short_description: "Restore damaged pixel art without redesign"
+  default_prompt: "Use $aseprite-pixel-art-restoration to restore this sprite conservatively."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Engine Export Profile"
+  short_description: "Validate and export assets for an engine schema"
+  default_prompt: "Use $aseprite-engine-export-profile to validate and export these assets for the target engine."

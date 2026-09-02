@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Animation Events"
+  short_description: "Author frame events aligned with animation timing"
+  default_prompt: "Use $aseprite-animation-event-authoring to define and validate these animation events."

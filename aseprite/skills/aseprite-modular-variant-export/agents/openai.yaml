@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Modular Variant Export"
+  short_description: "Render reproducible layer-based asset variants"
+  default_prompt: "Use $aseprite-modular-variant-export to define and render these layer variants."

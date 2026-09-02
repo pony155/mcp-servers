@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Autotile Authoring"
+  short_description: "Design complete seamless terrain adjacency tile sets"
+  default_prompt: "Use $aseprite-autotile-authoring to plan and build the required seamless adjacency tiles."

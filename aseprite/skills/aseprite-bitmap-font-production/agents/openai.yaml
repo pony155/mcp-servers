@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Bitmap Font Production"
+  short_description: "Build aligned complete bitmap font sprite assets"
+  default_prompt: "Use $aseprite-bitmap-font-production to create and validate this bitmap font asset."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Color-Managed Export"
+  short_description: "Assign and convert profiles for reliable handoff"
+  default_prompt: "Use $aseprite-color-managed-export to prepare this asset's color-space handoff."

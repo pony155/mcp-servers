@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Sprite Production"
+  short_description: "Produce and refine pixel-art sprites with the Aseprite MCP tools"
+  default_prompt: "Use the Aseprite MCP tools to produce, inspect, preview, validate, and export a sprite animation safely."

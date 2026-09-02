@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Batch Asset Pipeline"
+  short_description: "Standardize validation and export across sprite sets"
+  default_prompt: "Use $aseprite-batch-asset-pipeline to validate and export these assets consistently."

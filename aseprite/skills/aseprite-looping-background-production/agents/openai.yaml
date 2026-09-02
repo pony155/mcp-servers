@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Looping Background"
+  short_description: "Produce seamless temporal and spatial loops"
+  default_prompt: "Use $aseprite-looping-background-production to build and verify this loop."

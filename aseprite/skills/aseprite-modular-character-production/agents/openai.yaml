@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Modular Characters"
+  short_description: "Produce aligned interchangeable character parts"
+  default_prompt: "Use $aseprite-modular-character-production to build and audit this modular character."

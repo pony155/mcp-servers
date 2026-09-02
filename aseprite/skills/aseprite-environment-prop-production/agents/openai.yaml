@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Environment Prop Production"
+  short_description: "Produce game props with states and collision data"
+  default_prompt: "Use $aseprite-environment-prop-production to create this game-ready environment prop."

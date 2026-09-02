@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Directional Animation"
+  short_description: "Produce consistent four-way or eight-way animation"
+  default_prompt: "Use $aseprite-directional-animation to create a consistent directional animation set."

@@ -1,0 +1,345 @@
+{
+  "schema_version": 2,
+  "skill_count": 24,
+  "alias_count": 28,
+  "skills": [
+    {
+      "name": "aseprite-animation-event-authoring",
+      "family": "animation",
+      "recommended_tool_profile": "animation-authoring",
+      "description": "Author structured gameplay and audio events on Aseprite animation frames. Use when footsteps, impacts, hitboxes, projectiles, sounds, particles, or state transitions must align with final frame timing.",
+      "path": "aseprite-animation-event-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-animation-review",
+      "family": "animation",
+      "recommended_tool_profile": "animation-authoring",
+      "description": "Review and clean Aseprite animations for timing, jitter, arcs, continuity, duplicate frames, baseline drift, loop seams, and export readiness. Use after the main motion and art direction exist.",
+      "path": "aseprite-animation-review/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-character-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat-authoring",
+      "description": "Produce and validate player, enemy, elite, and boss sprite sets for lane-based pixel-art beat-'em-ups. Use for shared action contracts, movement, attacks, reactions, phases, anchors, timing, variants, and roster consistency.",
+      "path": "aseprite-beat-em-up-character-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-combat-authoring",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat-authoring",
+      "description": "Author and review beat-'em-up combat timing, boxes, anchors, events, transitions, and readability. Use for attacks, grabs, throws, armor, invulnerability, hitstop, hitstun, knockback, cancels, and gameplay-facing visual clarity.",
+      "path": "aseprite-beat-em-up-combat-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-engine-export",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat-authoring",
+      "description": "Validate, audit, and package beat-'em-up character, combat, VFX, prop, and stage assets. Use for reproducible bundles, roster consistency, runtime budgets, manifests, hashes, and final engine handoff.",
+      "path": "aseprite-beat-em-up-engine-export/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-stage-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "stage-authoring",
+      "description": "Produce pixel-art stages and gameplay-ready environment assets for lane-based beat-'em-ups in Aseprite. Use for scrolling backgrounds, walkable lanes, encounter spaces, props, breakables, hazards, depth layers, tilemaps, transitions, and stage export.",
+      "path": "aseprite-beat-em-up-stage-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-weapon-and-pickup-production",
+      "family": "beat-em-up",
+      "recommended_tool_profile": "combat-authoring",
+      "description": "Produce beat-'em-up weapons, pickups, breakables, carried props, projectiles, and synchronized combat VFX. Use for held, thrown, impact, broken, collected, attachment, hit-spark, trail, dust, and shockwave states.",
+      "path": "aseprite-beat-em-up-weapon-and-pickup-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-bitmap-font-production",
+      "family": "ui-and-fonts",
+      "recommended_tool_profile": "sprite-authoring",
+      "description": "Design and prepare bitmap font sprite assets in Aseprite. Use when glyph coverage, cell grids, baseline, spacing, punctuation, accents, and engine-ready extraction metadata matter.",
+      "path": "aseprite-bitmap-font-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-character-animation-set",
+      "family": "animation",
+      "recommended_tool_profile": "animation-authoring",
+      "description": "Produce coherent character animation families in Aseprite across directions and game genres. Use when movement, combat, reactions, modular parts, anchors, timing, and export conventions must remain consistent.",
+      "path": "aseprite-character-animation-set/SKILL.md"
+    },
+    {
+      "name": "aseprite-cutscene-animation-production",
+      "family": "animation",
+      "recommended_tool_profile": "animation-authoring",
+      "description": "Produce timed pixel-art cutscene animation in Aseprite. Use for dialogue beats, staged actions, camera plates, or scripted sequences with event and duration contracts.",
+      "path": "aseprite-cutscene-animation-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-environment-prop-production",
+      "family": "tiles-and-world",
+      "recommended_tool_profile": "stage-authoring",
+      "description": "Produce game-ready pixel-art environment props in Aseprite. Use when an object needs state variants, damage stages, interaction animation, pivots, slices, collision masks, or atlas-ready exports.",
+      "path": "aseprite-environment-prop-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-game-export",
+      "family": "export-and-pipeline",
+      "recommended_tool_profile": "export-qa",
+      "description": "Validate, batch, atlas-pack, audit, and export Aseprite assets under an explicit game-engine contract. Use for sprite sheets, metadata, collision shapes, profiles, release checks, and reproducible multi-asset handoff.",
+      "path": "aseprite-game-export/SKILL.md"
+    },
+    {
+      "name": "aseprite-looping-background-production",
+      "family": "animation",
+      "recommended_tool_profile": "animation-authoring",
+      "description": "Produce seamless looping pixel-art backgrounds in Aseprite. Use for animated skies, water, weather, machinery, parallax strips, or ambient environmental cycles.",
+      "path": "aseprite-looping-background-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-modular-character-production",
+      "family": "animation",
+      "recommended_tool_profile": "modular-character-authoring",
+      "description": "Produce layer-compatible modular characters in Aseprite. Use for paper dolls, equipment swaps, armor sets, hair variants, or independently composited body parts.",
+      "path": "aseprite-modular-character-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-palette-design",
+      "family": "color-and-qa",
+      "recommended_tool_profile": "sprite-authoring",
+      "description": "Design and manage Aseprite palettes, indexed conversion, controlled color variants, palette cycles, accessibility, and color-managed export. Use when color roles or delivery behavior must remain consistent across assets.",
+      "path": "aseprite-palette-design/SKILL.md"
+    },
+    {
+      "name": "aseprite-pixel-art-qa",
+      "family": "color-and-qa",
+      "recommended_tool_profile": "export-qa",
+      "description": "Audit and restore Aseprite pixel art for clusters, stray pixels, silhouettes, accessibility, palette consistency, frame continuity, scaling damage, document weight, and release defects. Use for evidence-based QA rather than initial art direction.",
+      "path": "aseprite-pixel-art-qa/SKILL.md"
+    },
+    {
+      "name": "aseprite-portrait-expression-production",
+      "family": "animation",
+      "recommended_tool_profile": "animation-authoring",
+      "description": "Produce consistent pixel-art portrait expression sets in Aseprite. Use for dialogue faces, emotion variants, blinking, lip shapes, or character reaction portraits that must retain identity.",
+      "path": "aseprite-portrait-expression-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-retro-hardware-constraint-production",
+      "family": "color-and-qa",
+      "recommended_tool_profile": "export-qa",
+      "description": "Produce Aseprite assets for explicit retro hardware limits. Use when palettes, tile budgets, sprite sizes, scanline limits, banks, or attribute regions must match a target platform.",
+      "path": "aseprite-retro-hardware-constraint-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-shared-asset-library-production",
+      "family": "export-and-pipeline",
+      "recommended_tool_profile": "sprite-authoring",
+      "description": "Maintain and export reusable Aseprite layer libraries and modular variants. Use when effects, equipment, UI parts, poses, paper-doll combinations, or layer trees must move or render safely across compatible documents.",
+      "path": "aseprite-shared-asset-library-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-sprite-production",
+      "family": "foundation",
+      "recommended_tool_profile": "sprite-authoring",
+      "description": "Produce and refine editable pixel-art sprites and animations with the Aseprite MCP server. Use when creating an Aseprite document, importing a sprite sheet, matching concept art, editing pixels/frames/layers/tags, applying a palette, transforming cels, reviewing animation quality, or exporting game-ready sprite sheets.",
+      "path": "aseprite-sprite-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-tilemap-level-production",
+      "family": "tiles-and-world",
+      "recommended_tool_profile": "stage-authoring",
+      "description": "Build and exchange tilemap level layouts in Aseprite. Use when tile layers, transforms, engine JSON, round trips, or level-data validation matter beyond tileset artwork itself.",
+      "path": "aseprite-tilemap-level-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-tileset-production",
+      "family": "tiles-and-world",
+      "recommended_tool_profile": "stage-authoring",
+      "description": "Build Aseprite tilesets including ordinary, autotile, isometric, transition, and metadata-driven variants. Use when tile geometry, adjacency, reuse, projection, palettes, or engine properties must remain consistent.",
+      "path": "aseprite-tileset-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-ui-sprite-production",
+      "family": "ui-and-fonts",
+      "recommended_tool_profile": "sprite-authoring",
+      "description": "Produce pixel-art UI systems in Aseprite, including icons, controls, panels, state animations, RPG icon families, pivots, and nine-slice metadata. Use when interface assets must share grid, contrast, and scaling rules.",
+      "path": "aseprite-ui-sprite-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-vfx-production",
+      "family": "animation",
+      "recommended_tool_profile": "animation-authoring",
+      "description": "Create and refine pixel-art visual effects in Aseprite. Use for impacts, trails, fire, smoke, magic, particles, explosions, and other looping or one-shot effects where timing, value, and silhouette drive readability.",
+      "path": "aseprite-vfx-production/SKILL.md"
+    }
+  ],
+  "aliases": [
+    {
+      "name": "aseprite-accessibility-review",
+      "canonical_name": "aseprite-pixel-art-qa",
+      "deprecated": true,
+      "path": "aseprite-accessibility-review/SKILL.md"
+    },
+    {
+      "name": "aseprite-animation-cleanup",
+      "canonical_name": "aseprite-animation-review",
+      "deprecated": true,
+      "path": "aseprite-animation-cleanup/SKILL.md"
+    },
+    {
+      "name": "aseprite-atlas-production",
+      "canonical_name": "aseprite-game-export",
+      "deprecated": true,
+      "path": "aseprite-atlas-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-autotile-authoring",
+      "canonical_name": "aseprite-tileset-production",
+      "deprecated": true,
+      "path": "aseprite-autotile-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-batch-asset-pipeline",
+      "canonical_name": "aseprite-game-export",
+      "deprecated": true,
+      "path": "aseprite-batch-asset-pipeline/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-boss-production",
+      "canonical_name": "aseprite-beat-em-up-character-production",
+      "deprecated": true,
+      "path": "aseprite-beat-em-up-boss-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-combat-readability-review",
+      "canonical_name": "aseprite-beat-em-up-combat-authoring",
+      "deprecated": true,
+      "path": "aseprite-beat-em-up-combat-readability-review/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-combat-vfx-production",
+      "canonical_name": "aseprite-beat-em-up-weapon-and-pickup-production",
+      "deprecated": true,
+      "path": "aseprite-beat-em-up-combat-vfx-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-enemy-roster-production",
+      "canonical_name": "aseprite-beat-em-up-character-production",
+      "deprecated": true,
+      "path": "aseprite-beat-em-up-enemy-roster-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-beat-em-up-stage-gameplay-authoring",
+      "canonical_name": "aseprite-beat-em-up-stage-production",
+      "deprecated": true,
+      "path": "aseprite-beat-em-up-stage-gameplay-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-collision-shape-authoring",
+      "canonical_name": "aseprite-game-export",
+      "deprecated": true,
+      "path": "aseprite-collision-shape-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-color-managed-export",
+      "canonical_name": "aseprite-palette-design",
+      "deprecated": true,
+      "path": "aseprite-color-managed-export/SKILL.md"
+    },
+    {
+      "name": "aseprite-color-variant-production",
+      "canonical_name": "aseprite-palette-design",
+      "deprecated": true,
+      "path": "aseprite-color-variant-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-concept-to-sprite",
+      "canonical_name": "aseprite-sprite-production",
+      "deprecated": true,
+      "path": "aseprite-concept-to-sprite/SKILL.md"
+    },
+    {
+      "name": "aseprite-directional-animation",
+      "canonical_name": "aseprite-character-animation-set",
+      "deprecated": true,
+      "path": "aseprite-directional-animation/SKILL.md"
+    },
+    {
+      "name": "aseprite-document-optimization",
+      "canonical_name": "aseprite-pixel-art-qa",
+      "deprecated": true,
+      "path": "aseprite-document-optimization/SKILL.md"
+    },
+    {
+      "name": "aseprite-engine-export-profile",
+      "canonical_name": "aseprite-game-export",
+      "deprecated": true,
+      "path": "aseprite-engine-export-profile/SKILL.md"
+    },
+    {
+      "name": "aseprite-fighting-game-animation",
+      "canonical_name": "aseprite-character-animation-set",
+      "deprecated": true,
+      "path": "aseprite-fighting-game-animation/SKILL.md"
+    },
+    {
+      "name": "aseprite-isometric-tile-production",
+      "canonical_name": "aseprite-tileset-production",
+      "deprecated": true,
+      "path": "aseprite-isometric-tile-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-modular-variant-export",
+      "canonical_name": "aseprite-shared-asset-library-production",
+      "deprecated": true,
+      "path": "aseprite-modular-variant-export/SKILL.md"
+    },
+    {
+      "name": "aseprite-nine-slice-ui-production",
+      "canonical_name": "aseprite-ui-sprite-production",
+      "deprecated": true,
+      "path": "aseprite-nine-slice-ui-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-palette-cycle-production",
+      "canonical_name": "aseprite-palette-design",
+      "deprecated": true,
+      "path": "aseprite-palette-cycle-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-pixel-art-restoration",
+      "canonical_name": "aseprite-pixel-art-qa",
+      "deprecated": true,
+      "path": "aseprite-pixel-art-restoration/SKILL.md"
+    },
+    {
+      "name": "aseprite-platformer-character-production",
+      "canonical_name": "aseprite-character-animation-set",
+      "deprecated": true,
+      "path": "aseprite-platformer-character-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-release-asset-audit",
+      "canonical_name": "aseprite-game-export",
+      "deprecated": true,
+      "path": "aseprite-release-asset-audit/SKILL.md"
+    },
+    {
+      "name": "aseprite-rpg-icon-set-production",
+      "canonical_name": "aseprite-ui-sprite-production",
+      "deprecated": true,
+      "path": "aseprite-rpg-icon-set-production/SKILL.md"
+    },
+    {
+      "name": "aseprite-tile-metadata-authoring",
+      "canonical_name": "aseprite-tileset-production",
+      "deprecated": true,
+      "path": "aseprite-tile-metadata-authoring/SKILL.md"
+    },
+    {
+      "name": "aseprite-top-down-character-production",
+      "canonical_name": "aseprite-character-animation-set",
+      "deprecated": true,
+      "path": "aseprite-top-down-character-production/SKILL.md"
+    }
+  ]
+}

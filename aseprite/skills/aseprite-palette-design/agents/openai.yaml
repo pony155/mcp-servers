@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Palette Design"
+  short_description: "Design, apply, and review compact role-based sprite palettes"
+  default_prompt: "Inspect the sprite colors, design a compact role-based palette, apply it safely, and review the result."

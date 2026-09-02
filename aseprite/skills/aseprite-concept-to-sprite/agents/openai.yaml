@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aseprite Concept to Sprite"
+  short_description: "Plan and produce an editable pixel-art sprite from reference art"
+  default_prompt: "Translate the reference into a pixel-art production specification and build an editable Aseprite sprite iteratively."
