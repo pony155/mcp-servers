@@ -103,7 +103,7 @@ class ExportService(AsepriteRuntime):
                     raise AsepriteMCPError(
                         "ASEPRITE_FAILED", "Aseprite did not create the rendered file"
                     )
-                publish_file(temporary, output)
+                publish_file(temporary, output, overwrite=overwrite)
             finally:
                 temporary.unlink(missing_ok=True)
         render_result = RenderResult(
@@ -143,12 +143,10 @@ class ExportService(AsepriteRuntime):
         data_output = self.paths.output_file(
             data_output_path, extensions=frozenset({".json"}), overwrite=overwrite
         )
-        if image_output == data_output or image_output in sources or data_output in sources:
+        if image_output == data_output or source in (image_output, data_output):
             raise AsepriteMCPError(
-                "PATH_NOT_ALLOWED", "Atlas outputs must differ from each other and every source"
+                "PATH_NOT_ALLOWED", "Sprite-sheet input and outputs must be distinct"
             )
-        if image_output == data_output:
-            raise AsepriteMCPError("PATH_NOT_ALLOWED", "Image and data outputs must differ")
         for value in (border_padding, shape_padding, inner_padding):
             if not 0 <= value <= 1024:
                 raise AsepriteMCPError("LIMIT_EXCEEDED", "padding must be between 0 and 1024")
@@ -208,8 +206,8 @@ class ExportService(AsepriteRuntime):
                         "ASEPRITE_FAILED", "Aseprite produced invalid sprite-sheet JSON"
                     ) from exc
                 frame_count = len(sheet_data.get("frames", []))
-                publish_file(image_temporary, image_output)
-                publish_file(data_temporary, data_output)
+                publish_file(image_temporary, image_output, overwrite=overwrite)
+                publish_file(data_temporary, data_output, overwrite=overwrite)
             finally:
                 image_temporary.unlink(missing_ok=True)
                 data_temporary.unlink(missing_ok=True)
@@ -316,7 +314,7 @@ class ExportService(AsepriteRuntime):
                     raise AsepriteMCPError(
                         "ASEPRITE_FAILED", "Aseprite did not create the contact sheet"
                     )
-                publish_file(temporary, output)
+                publish_file(temporary, output, overwrite=overwrite)
             finally:
                 temporary.unlink(missing_ok=True)
         return ContactSheetResult(
@@ -362,6 +360,10 @@ class ExportService(AsepriteRuntime):
         data_output = self.paths.output_file(
             data_output_path, extensions=frozenset({".json"}), overwrite=overwrite
         )
+        if image_output == data_output or image_output in sources or data_output in sources:
+            raise AsepriteMCPError(
+                "PATH_NOT_ALLOWED", "Atlas outputs must differ from each other and every source"
+            )
         image_temp, data_temp = temporary_sibling(image_output), temporary_sibling(data_output)
         arguments = ["--batch", "--noinapp", *[self._process_path(path) for path in sources]]
         arguments.append("--sheet-pack")
@@ -406,8 +408,8 @@ class ExportService(AsepriteRuntime):
                     raise AsepriteMCPError(
                         "LIMIT_EXCEEDED", "Generated atlas dimensions exceed the server limit"
                     )
-                publish_file(image_temp, image_output)
-                publish_file(data_temp, data_output)
+                publish_file(image_temp, image_output, overwrite=overwrite)
+                publish_file(data_temp, data_output, overwrite=overwrite)
             except json.JSONDecodeError as exc:
                 raise AsepriteMCPError(
                     "ASEPRITE_FAILED", "Aseprite produced invalid atlas JSON"
@@ -445,7 +447,7 @@ class ExportService(AsepriteRuntime):
                 if not all(path.is_file() for path in temporaries):
                     raise AsepriteMCPError("ASEPRITE_FAILED", "Aseprite did not create every slice")
                 for temporary, output in zip(temporaries, outputs, strict=True):
-                    publish_file(temporary, output)
+                    publish_file(temporary, output, overwrite=overwrite)
             finally:
                 for temporary in temporaries:
                     temporary.unlink(missing_ok=True)
@@ -503,7 +505,7 @@ class ExportService(AsepriteRuntime):
                 if not all(path.is_file() for path in temporaries):
                     raise AsepriteMCPError("ASEPRITE_FAILED", "Aseprite did not export every frame")
                 for temporary, output in zip(temporaries, outputs, strict=True):
-                    publish_file(temporary, output)
+                    publish_file(temporary, output, overwrite=overwrite)
             finally:
                 for temporary in temporaries:
                     temporary.unlink(missing_ok=True)
@@ -571,8 +573,8 @@ class ExportService(AsepriteRuntime):
                     raise AsepriteMCPError(
                         "ASEPRITE_FAILED", "bitmap-font outputs were not created"
                     )
-                publish_file(image_temp, image_output)
-                publish_file(data_temp, data_output)
+                publish_file(image_temp, image_output, overwrite=overwrite)
+                publish_file(data_temp, data_output, overwrite=overwrite)
             finally:
                 image_temp.unlink(missing_ok=True)
                 data_temp.unlink(missing_ok=True)

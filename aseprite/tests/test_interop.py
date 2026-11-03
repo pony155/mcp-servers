@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from aseprite_mcp.errors import AsepriteMCPError
-from aseprite_mcp.interop import (
+from aseprite.errors import AsepriteMCPError
+from aseprite.interop import (
     ProcessPathMapper,
     is_wsl,
     resolve_execution_mode,

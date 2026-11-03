@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from aseprite_mcp.config import discover_aseprite, parse_settings
-from aseprite_mcp.errors import AsepriteMCPError
+from aseprite.config import discover_aseprite, parse_settings
+from aseprite.errors import AsepriteMCPError
 
 
 def test_discover_explicit_executable(tmp_path: Path) -> None:

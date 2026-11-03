@@ -6,7 +6,7 @@ A collection of [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
 
 The first server in this collection integrates with [Aseprite](https://www.aseprite.org/), enabling MCP clients to work with pixel-art projects through a focused set of tools.
 
-Planned capabilities include:
+Available capabilities include:
 
 - Inspecting sprites, frames, layers, tags, slices, and palettes.
 - Creating and editing sprite documents.
@@ -15,20 +15,33 @@ Planned capabilities include:
 
 The initial Python implementation is available under [`aseprite`](aseprite). See its [README](aseprite/README.md) for setup, tools, safety behavior, and current limitations.
 
-After installing the Aseprite server dependencies, it can be started from the repository root:
+The server uses Python 3.10 through 3.14, uv with a committed dependency lockfile, and Hatchling for
+packaging. Install and start it from the repository root:
 
 ```console
-python main.py --aseprite "/path/to/Aseprite" --allow-root "/path/to/sprites"
+uv sync --project aseprite --locked --extra dev
+uv run --project aseprite --locked aseprite-mcp --aseprite "/path/to/Aseprite" --allow-root "/path/to/sprites"
 ```
 
 ## Repository layout
 
-Each integration should live in its own directory under `servers/`:
+The current implementation uses this layout (the original `servers/aseprite` layout has been
+flattened). Server code, Lua scripts, skills, and packaging configuration stay inside `aseprite/`:
 
 ```text
-servers/
-  aseprite/
+aseprite/
+  pyproject.toml
+  uv.lock
+  scripts/
+  services/
+  tools/
+  skills/
+main.py               # Optional source-checkout launcher
 ```
+
+The installed Python package is `aseprite`, and the console command is `aseprite-mcp`.
+Build a wheel and source distribution with `uv build aseprite`. See the server README for
+static checks and explicitly requested test workflows.
 
 Shared packages may be introduced under `packages/` when more than one server needs them.
 

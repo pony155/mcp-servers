@@ -471,7 +471,7 @@ class ModularService(AsepriteRuntime):
                     json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
                     encoding="utf-8",
                 )
-                publish_file(temporary, output)
+                publish_file(temporary, output, overwrite=overwrite)
             finally:
                 temporary.unlink(missing_ok=True)
         logger.info("Exported modular manifest source=%s output=%s parts=%d", source, output, len(parts))

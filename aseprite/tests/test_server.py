@@ -3,8 +3,8 @@ import sys
 import pytest
 from mcp import Client, StdioServerParameters
 
-from aseprite_mcp.config import Settings
-from aseprite_mcp.server import build_server
+from aseprite.config import Settings
+from aseprite.server import build_server
 
 
 @pytest.mark.asyncio
@@ -15,14 +15,16 @@ async def test_server_lists_expected_tools() -> None:
         tools = await client.list_tools()
         names = {tool.name for tool in tools.tools}
 
-    assert names == {
+    assert len(names) == 30
+    assert {
         "aseprite_health",
+        "aseprite_list_capabilities",
         "aseprite_inspect_sprite",
         "aseprite_render",
         "aseprite_export_sprite_sheet",
         "aseprite_create_sprite",
         "aseprite_set_pixels",
-    }
+    } <= names
 
 
 @pytest.mark.asyncio
@@ -42,7 +44,7 @@ async def test_health_reports_missing_executable() -> None:
 async def test_stdio_entry_point_lists_tools() -> None:
     parameters = StdioServerParameters(
         command=sys.executable,
-        args=["-m", "aseprite_mcp"],
+        args=["-m", "aseprite"],
     )
 
     async with Client(parameters) as client:

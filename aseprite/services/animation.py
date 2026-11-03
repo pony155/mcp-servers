@@ -85,7 +85,7 @@ class AnimationService(AsepriteRuntime):
                     raise AsepriteMCPError(
                         "ASEPRITE_FAILED", "Aseprite did not create the animation document"
                     )
-                publish_file(temporary, output)
+                publish_file(temporary, output, overwrite=overwrite)
             finally:
                 temporary.unlink(missing_ok=True)
         sprite = await self.inspect_sprite(str(output))

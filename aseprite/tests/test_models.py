@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from aseprite_mcp.models import PixelInput
+from aseprite.models import PixelInput
 
 
 def test_pixel_color_is_normalized() -> None:

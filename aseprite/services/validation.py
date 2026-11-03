@@ -119,7 +119,7 @@ class ValidationService(AsepriteRuntime):
                         raise AsepriteMCPError(
                             "ASEPRITE_FAILED", "Aseprite did not create the difference image"
                         )
-                    publish_file(temporary, output)
+                    publish_file(temporary, output, overwrite=overwrite)
                     result["difference"] = self._file_result(output).model_dump()
             finally:
                 if temporary is not None:

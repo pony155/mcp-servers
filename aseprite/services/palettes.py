@@ -124,7 +124,7 @@ class PalettesService(AsepriteRuntime):
                 })
                 if not temporary.is_file():
                     raise AsepriteMCPError("ASEPRITE_FAILED", "Aseprite did not export the palette")
-                publish_file(temporary, output)
+                publish_file(temporary, output, overwrite=overwrite)
             finally:
                 temporary.unlink(missing_ok=True)
         return self._file_result(output)

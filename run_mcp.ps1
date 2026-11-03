@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 
 codex mcp add aseprite -- wsl.exe -d Debian -- `
   /usr/bin/env `
-  "ASEPRITE_MCP_TOOL_PROFILES=modular-character-authoring" `
+  "ASEPRITE_MCP_TOOL_PROFILES=animation-authoring,sprite-authoring,export-qa" `
   /home/pony/.venv/bin/python `
   /mnt/c/Users/ppony/workspace/development/mcp-servers/main.py `
   --aseprite "/mnt/c/Program Files (x86)/Steam/steamapps/common/Aseprite/Aseprite.exe" `

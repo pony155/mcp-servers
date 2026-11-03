@@ -100,10 +100,28 @@ def temporary_sibling(destination: Path) -> Path:
     return destination.with_name(f".{destination.stem}.{token}.tmp{destination.suffix}")
 
 
-def publish_file(temporary: Path, destination: Path) -> None:
-    """Atomically publish a completed sibling file."""
+def publish_file(temporary: Path, destination: Path, *, overwrite: bool = False) -> None:
+    """Publish a completed sibling file without a check-then-replace race."""
 
-    os.replace(temporary, destination)
+    try:
+        if overwrite:
+            os.replace(temporary, destination)
+        else:
+            # Creating a hard link is atomic and fails if *any* destination entry
+            # already exists, including a dangling symlink. Never fall back to
+            # replace/copy on filesystems without hard-link support.
+            os.link(temporary, destination)
+            temporary.unlink()
+    except FileExistsError as exc:
+        raise AsepriteMCPError(
+            "OUTPUT_EXISTS", "Output already exists; pass overwrite=true to replace it"
+        ) from exc
+    except OSError as exc:
+        raise AsepriteMCPError(
+            "OUTPUT_PUBLISH_FAILED",
+            "Unable to publish output; check directory permissions and, when overwrite=false, "
+            "use a filesystem that supports hard links (such as NTFS or ext4)",
+        ) from exc
 
 
 def sha256_file(path: Path) -> str:

@@ -192,12 +192,16 @@ class AsepriteRuntime:
     @asynccontextmanager
     async def _locked(self, paths: Iterable[Path]) -> AsyncIterator[None]:
         locks = [self._path_locks.setdefault(path, asyncio.Lock()) for path in sorted(set(paths))]
-        for lock in locks:
-            await lock.acquire()
+        acquired: list[asyncio.Lock] = []
         try:
+            # Cancellation while waiting for a later lock must release the locks
+            # acquired so far, even before this context manager reaches yield.
+            for lock in locks:
+                await lock.acquire()
+                acquired.append(lock)
             yield
         finally:
-            for lock in reversed(locks):
+            for lock in reversed(acquired):
                 lock.release()
 
     async def _bridge(self, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -347,7 +351,7 @@ class AsepriteRuntime:
                     raise AsepriteMCPError(
                         "ASEPRITE_FAILED", "Aseprite did not create the edited sprite document"
                     )
-                publish_file(temporary, output)
+                publish_file(temporary, output, overwrite=overwrite)
             finally:
                 temporary.unlink(missing_ok=True)
         sprite = await self.inspect_sprite(str(output))

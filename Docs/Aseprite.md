@@ -494,7 +494,7 @@ Exit criteria: a small standalone Lua script can inspect a copied fixture and re
 - Implement configuration parsing, executable discovery, stderr logging, and `aseprite_health`.
 - Build the MCP server factory and serve it over stdio.
 - Add a contract test that spawns the packaged server and completes an MCP handshake and tool call.
-- Write `servers/aseprite/README.md` with installation and client configuration examples.
+- Write `aseprite/README.md` with installation and client configuration examples.
 
 Exit criteria: a client can launch the server and receive a health result on Windows.
 
@@ -570,7 +570,7 @@ Keep only small, purpose-built, legally distributable fixtures. Prefer assertion
 
 ## 14. Documentation deliverables
 
-Before the first release, `servers/aseprite/README.md` should include:
+Before the first release, `aseprite/README.md` should include:
 
 - Supported platforms and Aseprite versions.
 - Installation and executable discovery.

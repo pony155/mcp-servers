@@ -231,7 +231,7 @@ class CombatService(AsepriteRuntime):
                 temporary.write_text(
                     json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
                 )
-                publish_file(temporary, output)
+                publish_file(temporary, output, overwrite=overwrite)
             finally:
                 temporary.unlink(missing_ok=True)
         return CombatManifestResult(
@@ -319,7 +319,7 @@ class CombatService(AsepriteRuntime):
                         archive.write(sheet_path, "sheet.png")
                         archive.write(frames_path, "frames.json")
                         archive.write(manifest_path, "manifest.json")
-                    publish_file(temporary, output)
+                    publish_file(temporary, output, overwrite=overwrite)
                 finally:
                     temporary.unlink(missing_ok=True)
         return BeatEmUpBundleResult(

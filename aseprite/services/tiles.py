@@ -121,8 +121,8 @@ class TilesService(AsepriteRuntime):
                     "tileset": tileset, "columns": columns, "max_pixels": MAX_CANVAS_PIXELS})
                 if not image_temp.is_file() or not data_temp.is_file():
                     raise AsepriteMCPError("ASEPRITE_FAILED", "tileset outputs were not created")
-                publish_file(image_temp, image_output)
-                publish_file(data_temp, data_output)
+                publish_file(image_temp, image_output, overwrite=overwrite)
+                publish_file(data_temp, data_output, overwrite=overwrite)
             finally:
                 image_temp.unlink(missing_ok=True)
                 data_temp.unlink(missing_ok=True)
@@ -242,7 +242,7 @@ class TilesService(AsepriteRuntime):
                     raise AsepriteMCPError(
                         "ASEPRITE_FAILED", "Aseprite did not create tilemap JSON"
                     )
-                publish_file(temporary, output)
+                publish_file(temporary, output, overwrite=overwrite)
             finally:
                 temporary.unlink(missing_ok=True)
         return TilemapDataExportResult(

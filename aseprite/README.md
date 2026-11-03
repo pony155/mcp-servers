@@ -13,20 +13,40 @@ Aseprite is a separate application and is not included with this project. Instal
 ## Install from source
 
 ```console
-cd servers/aseprite
-uv sync --extra dev
+cd aseprite
+uv sync --locked --extra dev
 ```
+
+The committed `uv.lock` fixes runtime and development dependencies across supported Python
+versions. `--locked` rejects stale lockfiles rather than silently resolving different versions.
+The SDK baseline is MCP Python SDK 2.3. To deliberately refresh dependencies, run
+`uv lock --upgrade` in this directory, review the lockfile diff, and repeat the static/build checks below.
+
+The Python import name is `aseprite`; the command remains `aseprite-mcp`. Hatchling packages
+this directory's Python modules, tool catalogs, and versioned Lua bridge fragments under
+`aseprite/` in the wheel. Editable installs use the checkout's parent directory; keep the source
+directory named `aseprite`. The source distribution also includes skills and existing tests.
+
+To install a built wheel with a supported Python interpreter:
+
+```console
+python -m pip install /path/to/aseprite_mcp_server-0.1.0-py3-none-any.whl
+aseprite-mcp --allow-root /path/to/sprites
+```
+
+Wheel installation resolves dependencies from the declared ranges; use `uv sync --locked` from
+the checkout for the exact dependency set committed here.
 
 Run the server with at least one directory in which it may access files:
 
 ```console
-uv run aseprite-mcp --allow-root C:\path\to\sprites
+uv run --locked aseprite-mcp --allow-root C:\path\to\sprites
 ```
 
 If Aseprite is not discovered automatically:
 
 ```console
-uv run aseprite-mcp --aseprite "C:\Program Files\Aseprite\Aseprite.exe" --allow-root C:\path\to\sprites
+uv run --locked aseprite-mcp --aseprite "C:\Program Files\Aseprite\Aseprite.exe" --allow-root C:\path\to\sprites
 ```
 
 ## MCP client configuration
@@ -40,8 +60,9 @@ From a source checkout on Windows:
       "command": "uv",
       "args": [
         "--directory",
-        "C:/path/to/mcp-servers/servers/aseprite",
+        "C:/path/to/mcp-servers/aseprite",
         "run",
+        "--locked",
         "aseprite-mcp",
         "--allow-root",
         "C:/path/to/sprites"
@@ -64,11 +85,9 @@ drive mounted under `/mnt`, while keeping the repository and virtual environment
 filesystem:
 
 ```console
-cd ~/src/mcp-servers/servers/aseprite
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e .
-aseprite-mcp \
+cd ~/src/mcp-servers/aseprite
+uv sync --locked
+uv run --locked aseprite-mcp \
   --aseprite "/mnt/c/Program Files (x86)/Steam/steamapps/common/Aseprite/Aseprite.exe" \
   --allow-root "/mnt/c/Users/ada/Sprites"
 ```
@@ -97,7 +116,7 @@ Example MCP client configuration when the client launches commands inside WSL:
 {
   "mcpServers": {
     "aseprite": {
-      "command": "/home/ada/src/mcp-servers/servers/aseprite/.venv/bin/aseprite-mcp",
+      "command": "/home/ada/src/mcp-servers/aseprite/.venv/bin/aseprite-mcp",
       "args": [
         "--aseprite",
         "/mnt/c/Program Files/Aseprite/Aseprite.exe",
@@ -420,30 +439,41 @@ Codex skills directory (normally `$CODEX_HOME/skills`) and restart Codex to make
 
 - File tools are disabled until an allowed root is configured.
 - Canonical path checks reject access outside configured roots, including link traversal.
-- Existing outputs are rejected unless `overwrite=true` is explicit.
+- Existing outputs are rejected unless `overwrite=true` is explicit, including outputs created
+  by a competing request after initial path validation. Publication without overwrite uses an
+  atomic hard link; use a filesystem with hard-link support (such as NTFS or ext4). Unsupported
+  filesystems fail with `OUTPUT_PUBLISH_FAILED` rather than replacing an existing file.
 - Edits default to a different output file and support an optional SHA-256 source guard.
 - Aseprite runs with argument arrays and no command shell.
 - WSL-to-Windows path conversion occurs only after local path authorization.
 - Tool calls cannot supply raw Aseprite flags, executable paths, scripts, or Lua source.
-- Completed files are written to temporary sibling paths before publication.
+- Completed files are written to temporary sibling paths before publication. Atomicity is per
+  file: multi-file exports can leave earlier outputs published if a later publication fails.
+- Cancelling a request releases every acquired file lock and stops its child process before
+  bridge cleanup. Diagnostic stdout/stderr share a byte budget enforced during streaming reads.
 - Requests are bounded by time, process concurrency, diagnostic output, dimensions, frames, layers,
   per-cel and total animation pixel edits, pixel runs, pixel reads, preview bytes, contact-sheet
   dimensions, and validation/palette/comparison pixel visits.
 
 ## Development
 
+Run these commands from the repository root. The default verification workflow uses static
+checks and a build; run unit or integration suites only when explicitly requested.
+
 ```console
-uv run ruff check .
-uv run mypy src
-uv run pytest
-uv build
+uv run --project aseprite --locked ruff check --config aseprite/pyproject.toml aseprite
+uv run --project aseprite --locked mypy --config-file aseprite/pyproject.toml -p aseprite
+uv build aseprite
 ```
+
+When explicitly requested, run unit tests from the repository root with
+`uv run --project aseprite --locked pytest aseprite/tests -m "not integration"`.
 
 Integration tests run only when `ASEPRITE_EXECUTABLE` points to an installed Aseprite executable:
 
 ```console
 $env:ASEPRITE_EXECUTABLE = "C:\Program Files\Aseprite\Aseprite.exe"
-uv run pytest -m integration
+uv run --project aseprite --locked pytest aseprite/tests -m integration
 ```
 
 Under WSL, configure the executable and keep pytest's temporary directory on a Windows mount so
@@ -451,7 +481,7 @@ the integration suite exercises drive-path translation:
 
 ```console
 ASEPRITE_EXECUTABLE="/mnt/c/Program Files/Aseprite/Aseprite.exe" \
-  uv run pytest -m integration --basetemp=/mnt/c/Users/ada/AppData/Local/Temp/aseprite-mcp-tests
+  uv run --project aseprite --locked pytest aseprite/tests -m integration --basetemp=/mnt/c/Users/ada/AppData/Local/Temp/aseprite-mcp-tests
 ```
 
 Tests always copy or create documents in temporary directories; they do not modify source fixtures.
@@ -461,11 +491,12 @@ Tests always copy or create documents in temporary directories; they do not modi
 - The server uses batch processes and cannot manipulate an unsaved document in an existing Aseprite UI.
 - Some Windows installations refuse a concurrent batch process while the interactive Aseprite UI
   is open. If health reports exit code 1 without diagnostics, close the desktop instance and retry.
-- Render output is file-based; inline MCP image delivery is not implemented yet.
+- Preview tools return inline PNG/GIF images; render and export tools write explicit output files.
 - Pixel editing targets image layers, not groups or tilemaps.
 - Inspection reports the Lua API's current slice geometry. Use sprite-sheet JSON when complete animated slice keys are required.
-- Only PNG/GIF render outputs and PNG/JSON sprite-sheet outputs are supported.
+- Frame rendering supports PNG/GIF; sprite-sheet export produces PNG/JSON. Other export tools
+  provide palettes, tilemap metadata, bitmap fonts, and ZIP bundles as described in the tool catalog.
 - WSL interoperability targets WSL 2 with Windows drives mounted at `/mnt/<drive>`; custom mount
   layouts require artwork paths reachable through the `\\wsl.localhost` share.
 
-See the broader [implementation plan](../../Docs/Aseprite.md) for future phases and design rationale.
+See the broader [implementation plan](../Docs/Aseprite.md) for future phases and design rationale.

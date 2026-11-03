@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from aseprite_mcp.errors import AsepriteMCPError
-from aseprite_mcp.paths import SPRITE_DOCUMENT_EXTENSIONS, PathPolicy, temporary_sibling
+from aseprite.errors import AsepriteMCPError
+from aseprite.paths import SPRITE_DOCUMENT_EXTENSIONS, PathPolicy, temporary_sibling
 
 
 def test_existing_file_inside_root(tmp_path: Path) -> None:

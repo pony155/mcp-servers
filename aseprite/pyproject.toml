@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10,<3.15"
 authors = [{ name = "MCP Servers contributors" }]
 dependencies = [
-  "mcp[cli]>=2.0,<3",
+  "mcp[cli]>=2.3,<3",
   "pydantic>=2.11,<3",
 ]
 
@@ -24,13 +24,22 @@ dev = [
 ]
 
 [project.scripts]
-aseprite-mcp = "aseprite_mcp.__main__:main"
+aseprite-mcp = "aseprite.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/aseprite_mcp"]
+# The project directory is also the source package; prefix its files in the wheel.
+only-include = [
+  "__init__.py", "__main__.py", "adapter.py", "capabilities.py", "config.py",
+  "errors.py", "interop.py", "models.py", "paths.py", "process_runner.py",
+  "server.py", "schemas", "services", "tools", "scripts",
+]
+sources = { "" = "aseprite" }
+# In a source checkout the parent contains the importable aseprite/ package.
+dev-mode-dirs = [".."]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/aseprite_mcp", "tests", "README.md", "pyproject.toml"]
+include = ["/*.py", "/schemas", "/services", "/tools", "/scripts", "/skills",
+  "/tests", "/README.md", "/pyproject.toml", "/uv.lock"]
 
 [tool.ruff]
 extend-exclude = [".python", ".tools", ".venv"]
@@ -40,10 +49,13 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["aseprite"]
+
 [tool.mypy]
 python_version = "3.10"
 strict = true
-packages = ["aseprite_mcp"]
+packages = ["aseprite"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

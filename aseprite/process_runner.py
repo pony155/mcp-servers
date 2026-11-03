@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import time
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,7 +32,7 @@ class ProcessRunner:
         self, executable: Path, arguments: list[str], *, operation: str = "aseprite"
     ) -> ProcessResult:
         started_at = time.monotonic()
-        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
         logger.info(
             "Launching Aseprite process operation=%s executable=%s argument_count=%d",
             operation,
@@ -61,7 +62,7 @@ class ProcessRunner:
         logger.debug("Aseprite process started operation=%s pid=%s", operation, process.pid)
         try:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                process.communicate(), timeout=self.timeout_seconds
+                self._capture(process), timeout=self.timeout_seconds
             )
         except asyncio.TimeoutError as exc:
             elapsed = time.monotonic() - started_at
@@ -82,22 +83,11 @@ class ProcessRunner:
             )
             await self._stop(process)
             raise
+        except Exception:
+            await self._stop(process)
+            raise
 
         elapsed = time.monotonic() - started_at
-        captured_size = len(stdout_bytes) + len(stderr_bytes)
-        if captured_size > self.max_capture_bytes:
-            logger.error(
-                "Aseprite diagnostics exceeded limit operation=%s pid=%s "
-                "captured_bytes=%d limit=%d",
-                operation,
-                process.pid,
-                captured_size,
-                self.max_capture_bytes,
-            )
-            raise AsepriteMCPError(
-                "LIMIT_EXCEEDED", "Aseprite produced more diagnostic output than allowed"
-            )
-
         stdout = stdout_bytes.decode("utf-8", errors="replace")
         stderr = stderr_bytes.decode("utf-8", errors="replace")
         if process.returncode != 0:
@@ -133,17 +123,78 @@ class ProcessRunner:
             logger.debug("Aseprite stderr operation=%s: %s", operation, stderr.strip())
         return ProcessResult(process.returncode, stdout, stderr)
 
+    async def _capture(self, process: asyncio.subprocess.Process) -> tuple[bytes, bytes]:
+        """Read both pipes concurrently, enforcing one shared byte budget."""
+
+        captured_size = 0
+
+        async def read(stream: asyncio.StreamReader | None) -> bytes:
+            nonlocal captured_size
+            if stream is None:
+                return b""
+            output = bytearray()
+            while chunk := await stream.read(65_536):
+                captured_size += len(chunk)
+                if captured_size > self.max_capture_bytes:
+                    raise AsepriteMCPError(
+                        "LIMIT_EXCEEDED", "Aseprite produced more diagnostic output than allowed"
+                    )
+                output.extend(chunk)
+            return bytes(output)
+
+        stdout_task = asyncio.create_task(read(process.stdout))
+        stderr_task = asyncio.create_task(read(process.stderr))
+        wait_task = asyncio.create_task(process.wait())
+        try:
+            await asyncio.gather(stdout_task, stderr_task, wait_task)
+            return stdout_task.result(), stderr_task.result()
+        finally:
+            for task in (stdout_task, stderr_task, wait_task):
+                task.cancel()
+            await asyncio.gather(stdout_task, stderr_task, wait_task, return_exceptions=True)
+
     @staticmethod
     async def _stop(process: asyncio.subprocess.Process) -> None:
-        if process.returncode is not None:
-            return
-        logger.debug("Terminating Aseprite process pid=%s", process.pid)
-        process.terminate()
+        # Finish cleanup before propagating a second cancellation; the caller may
+        # remove bridge files as soon as run() returns.
+        cleanup = asyncio.create_task(ProcessRunner._terminate_and_drain(process))
+        cancelled = False
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                cancelled = True
+        cleanup.result()
+        if cancelled:
+            raise asyncio.CancelledError
+
+    @staticmethod
+    async def _terminate_and_drain(process: asyncio.subprocess.Process) -> None:
+        async def discard(stream: asyncio.StreamReader | None) -> None:
+            if stream is not None:
+                while await stream.read(65_536):
+                    pass
+
+        # Drain without retaining output so waiting for a terminated process
+        # cannot stall on full stdout/stderr pipes.
+        drains = [
+            asyncio.create_task(discard(stream)) for stream in (process.stdout, process.stderr)
+        ]
         try:
-            await asyncio.wait_for(process.wait(), timeout=2.0)
-        except asyncio.TimeoutError:
-            logger.warning(
-                "Aseprite process did not terminate promptly; killing pid=%s", process.pid
-            )
-            process.kill()
-            await process.wait()
+            if process.returncode is None:
+                logger.debug("Terminating Aseprite process pid=%s", process.pid)
+                with suppress(ProcessLookupError):
+                    process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=2.0)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Aseprite process did not terminate promptly; killing pid=%s", process.pid
+                )
+                with suppress(ProcessLookupError):
+                    process.kill()
+                await process.wait()
+        finally:
+            for task in drains:
+                task.cancel()
+            await asyncio.gather(*drains, return_exceptions=True)

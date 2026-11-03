@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from aseprite_mcp.adapter import AsepriteAdapter
-from aseprite_mcp.config import Settings
-from aseprite_mcp.models import FrameDefinition, LayerDefinition, PixelInput
-from aseprite_mcp.paths import sha256_file
+from aseprite.adapter import AsepriteAdapter
+from aseprite.config import Settings
+from aseprite.models import FrameDefinition, LayerDefinition, PixelInput
+from aseprite.paths import sha256_file
 
 pytestmark = pytest.mark.integration
 
